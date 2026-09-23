@@ -77,7 +77,7 @@
         var LOOKS = ['warm', 'mid', 'night'];
         var look = (function () { try { var q = new URLSearchParams(location.search).get('look'); return LOOKS.indexOf(q) >= 0 ? q : 'mid'; } catch (e) { return 'mid'; } })();
         var lookPending = true; // 既定の型も読み込み後に Unity へ渡す
-        var lookSettled = false;
+        var lookSettled = false, lookRetry = 0;
         function paintLook(k) { Array.prototype.forEach.call(document.querySelectorAll('#looks button'), function (b) { b.setAttribute('aria-pressed', b.dataset.look === k ? 'true' : 'false'); }); }
         paintLook(look);
         Array.prototype.forEach.call(document.querySelectorAll('#looks button'), function (b) {
@@ -90,9 +90,14 @@
         window.kitanStatus = function (slot, text) {
           if (slot === 'look') {
             if (LOOKS.indexOf(text) < 0) return;
-            // Unity は起動の後で自分の既定の型を当てて知らせてくる。最初の一度は、ページが選んだ型（URL か既定の mid）で当て直す
-            if (!lookSettled && text !== look) { if (window.unityInstance) { lookSettled = true; window.unityInstance.SendMessage('ShoinLook', 'SetLook', look); } return; }
-            lookSettled = true; look = text; paintLook(text); return;
+            // Unity は起動の途中で自分の既定の型を当てて知らせてくる（ページが先に渡した型より後になることがある）。
+            // オーナーがボタンに触れるまでは、ページが選んだ型（URL か既定の mid）と違えば当て直す（回数の上限つき）
+            if (!lookSettled && text !== look) {
+              if (window.unityInstance && lookRetry < 5) { lookRetry++; var want = look; setTimeout(function () { window.unityInstance.SendMessage('ShoinLook', 'SetLook', want); }, 0); }
+              return;
+            }
+            if (lookSettled) look = text;
+            paintLook(look); return;
           }
           var node = el('hud-' + slot); if (!node) return;
           var m = /^([^:：]+)[:：]\s*(.*)$/.exec(text);
