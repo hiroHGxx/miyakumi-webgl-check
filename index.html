@@ -32,6 +32,14 @@
         padding: 6px 10px; font-size: 12px; line-height: 1.55; color: var(--sub); font-family: "Hiragino Sans", "Yu Gothic", sans-serif; pointer-events: none; }
       #hud b { color: var(--geppaku); font-weight: 500; }
       #err { color: var(--kindei-hi); }
+      /* 見た目の型の切り替え（温・中・夜）。押し所は 44×36px・文字 15.5px（design-tokens の button 段）・角丸 5px（ゲーム画面の段） */
+      #looks { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 3;
+        display: flex; gap: 8px; padding: 4px; border-radius: 10px; background: rgba(19,19,32,.78); border: 1px solid rgba(217,169,76,.3);
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
+      #looks button { min-width: 52px; height: 36px; padding: 0 12px; border-radius: 5px; font: inherit; font-size: 15.5px; letter-spacing: .1em;
+        color: var(--sub); background: linear-gradient(#232033, #161320); border: 1px solid #565064; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+      #looks button[aria-pressed="true"] { color: var(--kindei-hi); border-color: var(--kindei); }
+      #looks button:active { background: linear-gradient(#16131F, #1C1929); }
     </style>
   </head>
   <body>
@@ -42,6 +50,11 @@
       <div class="bar"><i id="bar"></i></div>
       <div class="num" id="num">0% ・ 0.0秒</div>
     </div></div>
+    <div id="looks" role="group" aria-label="見た目">
+      <button type="button" data-look="warm" aria-pressed="false">温</button>
+      <button type="button" data-look="mid" aria-pressed="false">中</button>
+      <button type="button" data-look="night" aria-pressed="false">夜</button>
+    </div>
     <div id="hud">
       <div id="hud-load"><b>読込</b>: 待っています</div>
       <div id="hud-chibi"><b>ちび</b>: まだ</div>
@@ -60,7 +73,21 @@
         var K = window.__kitan;
         function sec(ms) { return (ms / 1000).toFixed(1); }
         function el(id) { return document.getElementById(id); }
+        // 見た目の型: ?look=warm|mid|night（既定 night）。押したら即時に切り替え、URL も書き換える（再読み込みはしない）
+        var LOOKS = ['warm', 'mid', 'night'];
+        var look = (function () { try { var q = new URLSearchParams(location.search).get('look'); return LOOKS.indexOf(q) >= 0 ? q : 'night'; } catch (e) { return 'night'; } })();
+        var lookPending = false;
+        function paintLook(k) { Array.prototype.forEach.call(document.querySelectorAll('#looks button'), function (b) { b.setAttribute('aria-pressed', b.dataset.look === k ? 'true' : 'false'); }); }
+        paintLook(look);
+        Array.prototype.forEach.call(document.querySelectorAll('#looks button'), function (b) {
+          b.addEventListener('click', function () {
+            look = b.dataset.look; paintLook(look);
+            try { var u = new URL(location.href); u.searchParams.set('look', look); history.replaceState(null, '', u.toString()); } catch (e) {}
+            if (window.unityInstance) window.unityInstance.SendMessage('ShoinLook', 'SetLook', look); else lookPending = true;
+          });
+        });
         window.kitanStatus = function (slot, text) {
+          if (slot === 'look') { if (LOOKS.indexOf(text) >= 0) { look = text; paintLook(text); } return; }
           var node = el('hud-' + slot); if (!node) return;
           var m = /^([^:：]+)[:：]\s*(.*)$/.exec(text);
           node.innerHTML = '';
@@ -95,6 +122,7 @@
           K.marks['instance-ready'] = Math.round(performance.now());
           clearInterval(tick);
           el('veil').classList.add('gone');
+          if (lookPending) inst.SendMessage('ShoinLook', 'SetLook', look);
           window.kitanStatus('load', '読込: 書院が出るまで ' + sec(K.marks['instance-ready']) + '秒');
         }).catch(function (msg) {
           clearInterval(tick);
