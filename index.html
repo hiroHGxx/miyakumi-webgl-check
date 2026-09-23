@@ -73,10 +73,10 @@
         var K = window.__kitan;
         function sec(ms) { return (ms / 1000).toFixed(1); }
         function el(id) { return document.getElementById(id); }
-        // 見た目の型: ?look=warm|mid|night（既定 night）。押したら即時に切り替え、URL も書き換える（再読み込みはしない）
+        // 見た目の型: ?look=warm|mid|night（既定 mid）。押したら即時に切り替え、URL も書き換える（再読み込みはしない）
         var LOOKS = ['warm', 'mid', 'night'];
-        var look = (function () { try { var q = new URLSearchParams(location.search).get('look'); return LOOKS.indexOf(q) >= 0 ? q : 'night'; } catch (e) { return 'night'; } })();
-        var lookPending = false;
+        var look = (function () { try { var q = new URLSearchParams(location.search).get('look'); return LOOKS.indexOf(q) >= 0 ? q : 'mid'; } catch (e) { return 'mid'; } })();
+        var lookPending = true; // 既定の型も読み込み後に Unity へ渡す
         function paintLook(k) { Array.prototype.forEach.call(document.querySelectorAll('#looks button'), function (b) { b.setAttribute('aria-pressed', b.dataset.look === k ? 'true' : 'false'); }); }
         paintLook(look);
         Array.prototype.forEach.call(document.querySelectorAll('#looks button'), function (b) {
