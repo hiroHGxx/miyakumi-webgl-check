@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <title>宮くみ 書院の見本（技術検証）</title>
+    <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『宮くみ』の技術検証。Unity WebGL の重さ・公式ちびの実行時取得・わいわいSDKのセーブを確かめる一枚。">
+    <script>
+      // 計時の起点（ページの頭）。印は window.__kitan に積む
+      window.__kitan = { t0: performance.now(), marks: {} };
+      window.kitanMark = function (name) { window.__kitan.marks[name] = Math.round(performance.now()); };
+    </script>
+    <script src="https://waiwai.town/sdk.js" crossorigin="anonymous"></script>
+    <style>
+      :root {
+        --yoiyami: #131320; --yoiyami-hi: #1B1B2E; --geppaku: #E8E4D8; --sub: #9D93B5;
+        --kindei: #D9A94C; --kindei-hi: #F0CE7E;
+      }
+      html, body { margin: 0; padding: 0; height: 100%; background: var(--yoiyami); color: var(--geppaku); overflow: hidden;
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; -webkit-text-size-adjust: 100%; }
+      #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: var(--yoiyami); touch-action: none; outline: none; }
+      #veil { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--yoiyami); transition: opacity .6s ease; z-index: 2; }
+      #veil.gone { opacity: 0; pointer-events: none; }
+      .card { background: var(--yoiyami-hi); border: 1px solid rgba(217,169,76,.45); border-radius: 12px; padding: 22px 24px; width: min(320px, calc(100vw - 48px)); text-align: center; }
+      .card h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: .2em; color: var(--kindei-hi); font-weight: 600; }
+      .card p { margin: 0 0 14px; font-size: 14px; color: var(--sub); }
+      .bar { height: 6px; border-radius: 999px; background: var(--yoiyami); overflow: hidden; }
+      .bar i { display: block; height: 100%; width: 0; background: var(--kindei); border-radius: 999px; transition: width .2s; }
+      .num { margin-top: 10px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+      #hud { position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 3;
+        max-width: min(560px, calc(100vw - 16px)); background: rgba(19,19,32,.78); border: 1px solid rgba(217,169,76,.3); border-radius: 9px;
+        padding: 6px 10px; font-size: 12px; line-height: 1.55; color: var(--sub); font-family: "Hiragino Sans", "Yu Gothic", sans-serif; pointer-events: none; }
+      #hud b { color: var(--geppaku); font-weight: 500; }
+      #err { color: var(--kindei-hi); }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="veil"><div class="card">
+      <h1>宮くみ</h1>
+      <p>書院を組み立てています</p>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="num" id="num">0% ・ 0.0秒</div>
+    </div></div>
+    <div id="hud">
+      <div id="hud-load"><b>読込</b>: 待っています</div>
+      <div id="hud-chibi"><b>ちび</b>: まだ</div>
+      <div id="hud-save"><b>記録</b>: まだ</div>
+      <div id="hud-fps"><b>描画</b>: 測っています</div>
+      <div id="err"></div>
+    </div>
+    <script src="Build/WebGL-br.loader.js"></script>
+    <script>
+      (function () {
+        // iOS のダブルタップ拡大・ピンチを止める
+        document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+        var lastTouch = 0;
+        document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - lastTouch < 350) e.preventDefault(); lastTouch = n; }, { passive: false });
+
+        var K = window.__kitan;
+        function sec(ms) { return (ms / 1000).toFixed(1); }
+        function el(id) { return document.getElementById(id); }
+        window.kitanStatus = function (slot, text) {
+          var node = el('hud-' + slot); if (!node) return;
+          var m = /^([^:：]+)[:：]\s*(.*)$/.exec(text);
+          node.innerHTML = '';
+          if (m) { var b = document.createElement('b'); b.textContent = m[1]; node.appendChild(b); node.appendChild(document.createTextNode(': ' + m[2])); }
+          else node.textContent = text;
+        };
+        window.addEventListener('error', function (e) { el('err').textContent = '不具合: ' + String(e.message || e).slice(0, 120); });
+
+        var canvas = el('unity-canvas');
+        K.marks['loader-start'] = Math.round(performance.now());
+        var tick = setInterval(function () { el('num').textContent = el('num').dataset.p + '% ・ ' + sec(performance.now()) + '秒'; }, 100);
+        el('num').dataset.p = '0';
+        createUnityInstance(canvas, {
+          dataUrl: "Build/WebGL-br.data.unityweb",
+          frameworkUrl: "Build/WebGL-br.framework.js.unityweb",
+          codeUrl: "Build/WebGL-br.wasm.unityweb",
+          // Unity 6000.0.36 の不具合よけ: fallback 有効時はスレッド無しでも workerUrl を取りにいく
+          workerUrl: "TemplateData/noop-worker.js",
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "kitan-circle",
+          productName: "宮くみ 書院の見本",
+          productVersion: "1.0",
+          devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        }, function (p) {
+          var pct = Math.round(p * 100);
+          el('num').dataset.p = String(pct);
+          el('bar').style.width = pct + '%';
+          if (p >= 0.9 && !K.marks['downloaded']) K.marks['downloaded'] = Math.round(performance.now());
+        }).then(function (inst) {
+          window.unityInstance = inst;
+          K.marks['instance-ready'] = Math.round(performance.now());
+          clearInterval(tick);
+          el('veil').classList.add('gone');
+          window.kitanStatus('load', '読込: 書院が出るまで ' + sec(K.marks['instance-ready']) + '秒');
+        }).catch(function (msg) {
+          clearInterval(tick);
+          el('num').textContent = '開けませんでした';
+          el('err').textContent = '不具合: ' + String(msg).slice(0, 160);
+        });
+      })();
+    </script>
+  </body>
+</html>
