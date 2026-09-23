@@ -3,12 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>ひとよ屋敷（便2・せり上がりの一枚）</title>
-    <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2）。扉を押すと札が出て、選んだ部屋が盤から迫り上がり、栞が歩いて入る。">
+    <title>ひとよ屋敷（便2改・寄りと見取り図）</title>
+    <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2改）。栞のいる部屋に寄って扉を押すと札が出て、選んだ部屋が盤から迫り上がり、栞が跳ねて入る。「見取り図」で屋敷の全体へ引ける。">
     <script>
       window.__kitan = { t0: performance.now(), marks: {} };
       window.kitanMark = function (name) { window.__kitan.marks[name] = Math.round(performance.now()); };
-      window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '' };
+      window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '', view: null,
+        lay: { runs: 0, withDoors: 0, overlapAfter: 0, moved: 0, hidden: 0, offscreen: 0, hitUi: 0, doorDoor: 0, minDoor: 999, worst: '' } };
     </script>
     <script src="https://waiwai.town/sdk.js" crossorigin="anonymous"></script>
     <style>
@@ -45,13 +46,19 @@
       #rise button { min-width: 44px; height: 36px; padding: 0 6px; white-space: nowrap; border-radius: 9px; font-size: 15px; color: var(--sub);
         background: linear-gradient(#232033, #161320); border: 1px solid #565064; font-variant-numeric: tabular-nums; }
       #rise button[aria-pressed="true"] { color: var(--kindei-hi); border-color: var(--kindei); }
+      /* 見取り図（寄り⇔全体）。上の帯の下・右寄せ */
+      #mapBtn { position: fixed; z-index: 6; top: calc(max(8px, env(safe-area-inset-top)) + 52px); right: max(8px, env(safe-area-inset-right));
+        min-width: 44px; height: 40px; padding: 0 14px; border-radius: 999px; font-size: 15px; letter-spacing: .1em; white-space: nowrap;
+        color: var(--kindei-hi); background: rgba(19,19,32,.82); border: 1px solid var(--kindei); }
+      #mapBtn[aria-pressed="true"] { color: var(--kindei-ink); background: var(--kindei-hi); }
+      #mapBtn:active { transform: scale(.96); }
 
       /* 盤の上に重ねる層（部屋の名札・扉の押し所） */
       #over { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
       .lab { position: absolute; transform: translate(-50%, -50%); font-size: 12px; line-height: 1.3; padding: 1px 5px; border-radius: 9px; white-space: nowrap;
         color: var(--geppaku); background: rgba(19,19,32,.72); border: 1px solid rgba(157,147,181,.4); font-family: var(--gothic); }
-      .door { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 999px; pointer-events: auto;
-        display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; padding: 0;
+      .door { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 999px; pointer-events: auto;
+        display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; padding: 0;
         color: var(--kindei-hi); background: rgba(19,19,32,.82); border: 2px solid var(--kindei); box-shadow: 0 0 0 1px rgba(19,19,32,.9), 0 0 12px rgba(217,169,76,.35); }
       .door.move, .door.unlock { color: var(--geppaku); border-color: var(--sub); box-shadow: 0 0 0 1px rgba(19,19,32,.9); }
       .door.locked, .door.lock { color: var(--sub); border-color: #565064; border-style: dashed; box-shadow: none; }
@@ -99,6 +106,7 @@
         <button type="button" data-sec="1.2" aria-pressed="false">1.2</button>
       </div>
     </div>
+    <button type="button" id="mapBtn" aria-pressed="false">見取り図</button>
     <div id="bottom">
       <div id="toast" role="status" aria-live="polite"></div>
       <div id="cards"><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）</p><div class="row" id="cardRow"></div></div>
@@ -142,6 +150,12 @@
           });
         });
         el('deNext').addEventListener('click', function () { send('NextDay', ''); });
+        el('mapBtn').addEventListener('click', function () { send('ToggleMap', ''); });
+        function paintView(v) {
+          var b = el('mapBtn'); b.setAttribute('aria-pressed', v.map ? 'true' : 'false');
+          b.textContent = v.map ? '部屋へ戻る' : '見取り図';
+          b.style.display = v.pinned ? 'none' : '';
+        }
 
         var toastTimer = 0;
         function toast(t) { var n = el('toast'); n.textContent = t; n.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { n.classList.remove('on'); }, 2600 + t.length * 45); }
@@ -151,6 +165,72 @@
           node.style.left = (r.left + x * r.width).toFixed(1) + 'px';
           node.style.top = (r.top + y * r.height).toFixed(1) + 'px';
         }
+
+        // ---- 押し所と名札の置き場（便2改） ----
+        // 扉の押し所: いまの部屋の画面上の矩形の外へ、扉の口の向きに押し出す（部屋の中身に重ねない・画面の端寄り）。
+        // 名札: 押し所・上の帯・見取り図のボタンに重なったら、重ならない所まで押しのける。押しのけきれなければ出さない。
+        var lastDoors = null, lastLabels = null;
+        var HALF = 22, GAP = 6;
+        var NOFIX = new URLSearchParams(location.search).get('labfix') === '0';   // 検分: 名札を押しのけない（重なりを検査が数えるか）
+        function rectOf(n) { var r = n.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; }
+        function hit(a, b, m) { m = m || 0; return a.l < b.r + m && b.l < a.r + m && a.t < b.b + m && b.t < a.b + m; }
+        function layout() {
+          var R = canvas.getBoundingClientRect(), L = HY.lay; L.runs++;
+          var topR = rectOf(el('top')), mapR = el('mapBtn').style.display === 'none' ? null : rectOf(el('mapBtn'));
+          var ui = [topR]; if (mapR) ui.push(mapR);
+          var box = el('doors'); box.textContent = ''; var drs = [];
+          var m = lastDoors;
+          if (m && m.list.length) {
+            L.withDoors++;
+            var rx0 = R.left + m.rx0 * R.width, rx1 = R.left + m.rx1 * R.width, ry0 = R.top + m.ry0 * R.height, ry1 = R.top + m.ry1 * R.height;
+            var fx0 = R.left + m.fx0 * R.width - 14, fx1 = R.left + m.fx1 * R.width + 14, fy0 = R.top + m.fy0 * R.height - 14, fy1 = R.top + m.fy1 * R.height + 14;
+            var minX = Math.max(R.left + 4, fx0) + HALF, maxX = Math.min(R.right - 4, fx1) - HALF;
+            var minY = Math.max(topR.b + 4, fy0) + HALF, maxY = Math.min(R.bottom - 4, fy1) - HALF;
+            m.list.forEach(function (d) {
+              // 北・南は扉の口の真上／真下、東・西は真横に。部屋の矩形の外へ出す
+              var ax = R.left + d.x * R.width, ay = R.top + d.y * R.height, px = ax, py = ay;
+              if (d.dir === 'N') py = ry0 - HALF - GAP; else if (d.dir === 'S') py = ry1 + HALF + GAP;
+              else if (d.dir === 'E') px = rx1 + HALF + GAP; else px = rx0 - HALF - GAP;
+              px = Math.min(maxX, Math.max(minX, px)); py = Math.min(maxY, Math.max(minY, py));
+              var k = KIND[d.kind] || ['扉', ''];
+              var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind; b.textContent = k[0];
+              b.dataset.dir = d.dir; b.setAttribute('aria-label', DIRNAME[d.dir] + k[1] + (d.to ? '（' + d.to + '）' : ''));
+              b.style.left = px.toFixed(1) + 'px'; b.style.top = py.toFixed(1) + 'px';
+              b.addEventListener('click', function () { send('Door', d.dir); });
+              box.appendChild(b); drs.push(b);
+            });
+          }
+          var dRects = drs.map(rectOf);
+          dRects.forEach(function (r, i) {
+            L.minDoor = Math.min(L.minDoor, r.w, r.h);
+            if (r.l < R.left - 0.5 || r.t < R.top - 0.5 || r.r > R.right + 0.5 || r.b > R.bottom + 0.5) { L.offscreen++; L.worst = 'offscreen ' + drs[i].dataset.dir; }
+            ui.forEach(function (u) { if (hit(r, u)) { L.hitUi++; L.worst = 'ui ' + drs[i].dataset.dir; } });
+            for (var j = i + 1; j < dRects.length; j++) if (hit(r, dRects[j])) { L.doorDoor++; L.worst = 'door-door'; }
+          });
+          var lbox = el('labs'); lbox.textContent = '';
+          var low = [rectOf(el('hud'))]; if (el('cards').classList.contains('on')) low.push(rectOf(el('cards')));   // 名札は下の札・計測の札の裏に隠さない
+          var obst = dRects.concat(ui, low), placed = [];
+          (lastLabels || []).forEach(function (l) {
+            var x = R.left + l.x * R.width, y = R.top + l.y * R.height;
+            if (x < R.left || x > R.right || y < R.top || y > R.bottom) return;      // 画面の外の部屋（寄りで端に切れた部屋）は出さない
+            var n = document.createElement('div'); n.className = 'lab'; n.textContent = l.text; lbox.appendChild(n);
+            n.style.left = x.toFixed(1) + 'px'; n.style.top = y.toFixed(1) + 'px';
+            var r = rectOf(n), w = r.w, h = r.h;
+            function at(px, py) { return { l: px - w / 2, r: px + w / 2, t: py - h / 2, b: py + h / 2 }; }
+            function bad(q) { if (q.l < R.left || q.r > R.right || q.t < R.top || q.b > R.bottom) return true; return obst.concat(placed).some(function (o) { return hit(q, o, 3); }); }
+            var q = at(x, y);
+            if (bad(q) && !NOFIX) {
+              var ok = null;
+              for (var s = 6; s <= 72 && !ok; s += 6)
+                [[0, -1], [0, 1], [-1, 0], [1, 0], [-.7, -.7], [.7, -.7], [-.7, .7], [.7, .7]].some(function (v) { var c = at(x + v[0] * s, y + v[1] * s); if (!bad(c)) { ok = [x + v[0] * s, y + v[1] * s]; return true; } return false; });
+              if (ok) { n.style.left = ok[0].toFixed(1) + 'px'; n.style.top = ok[1].toFixed(1) + 'px'; q = at(ok[0], ok[1]); L.moved++; }
+              else { n.remove(); L.hidden++; return; }
+            }
+            placed.push(q);
+          });
+          Array.prototype.forEach.call(lbox.children, function (n) { var r = rectOf(n); dRects.forEach(function (d) { if (hit(r, d)) { L.overlapAfter++; L.worst = 'label-door ' + n.textContent; } }); });
+        }
+        window.addEventListener('resize', function () { requestAnimationFrame(layout); });
 
         window.hitoyoUi = function (s) {
           var m; try { m = JSON.parse(s); } catch (e) { return; }
@@ -162,23 +242,9 @@
             case 'toast': toast(m.text); HY.toasts.push(m.text); break;
             case 'checkDone': HY.checkDone = m.text; break;
             case 'state': HY.state = m; break;
-            case 'labels': {
-              var box = el('labs'); box.textContent = '';
-              m.list.forEach(function (l) { var d = document.createElement('div'); d.className = 'lab'; d.textContent = l.text; place(d, l.x, l.y); box.appendChild(d); });
-              HY.labels = m.list; break;
-            }
-            case 'doors': {
-              var box = el('doors'); box.textContent = '';
-              m.list.forEach(function (d) {
-                var k = KIND[d.kind] || ['扉', ''];
-                var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind; b.textContent = k[0];
-                b.dataset.dir = d.dir; b.setAttribute('aria-label', DIRNAME[d.dir] + k[1]);
-                place(b, d.x, d.y);
-                b.addEventListener('click', function () { send('Door', d.dir); });
-                box.appendChild(b);
-              });
-              HY.doors = m.list; break;
-            }
+            case 'labels': lastLabels = m.list; HY.labels = m.list; layout(); break;
+            case 'doors': lastDoors = m; HY.doors = m.list; layout(); break;
+            case 'view': paintView(m); HY.view = m; layout(); break;
             case 'cards': {
               var row = el('cardRow'); row.textContent = '';
               m.list.forEach(function (c) {
@@ -219,7 +285,7 @@
           workerUrl: "TemplateData/noop-worker.js",
           streamingAssetsUrl: "StreamingAssets",
           companyName: "kitan-circle",
-          productName: "ひとよ屋敷 便2",
+          productName: "ひとよ屋敷 便2改",
           productVersion: "1.0",
           devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
         }, function (p) {
