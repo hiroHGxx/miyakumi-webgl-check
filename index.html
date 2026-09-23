@@ -83,7 +83,8 @@
           companyName: "kitan-circle",
           productName: "宮くみ 書院の見本",
           productVersion: "1.0",
-          devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+          // 描く細かさ: 既定は端末の倍率（上限 2）。検分用に ?dpr=1.5 のように下げられる
+          devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
         }, function (p) {
           var pct = Math.round(p * 100);
           el('num').dataset.p = String(pct);
