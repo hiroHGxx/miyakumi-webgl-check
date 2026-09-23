@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <title>ひとよ屋敷（便2・せり上がりの一枚）</title>
+    <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2）。扉を押すと札が出て、選んだ部屋が盤から迫り上がり、栞が歩いて入る。">
+    <script>
+      window.__kitan = { t0: performance.now(), marks: {} };
+      window.kitanMark = function (name) { window.__kitan.marks[name] = Math.round(performance.now()); };
+      window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '' };
+    </script>
+    <script src="https://waiwai.town/sdk.js" crossorigin="anonymous"></script>
+    <style>
+      /* 色は data/design-tokens.json（kitan-lore get_design_tone の写し）から */
+      :root {
+        --yoiyami: #131320; --yoiyami-hi: #1B1B2E; --geppaku: #E8E4D8; --sub: #9D93B5;
+        --kindei: #D9A94C; --kindei-hi: #F0CE7E; --kindei-ink: #1C1508; --shokko: #E0562F;
+        --mincho: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        --gothic: "Hiragino Sans", "Yu Gothic", sans-serif;
+      }
+      html, body { margin: 0; padding: 0; height: 100%; background: var(--yoiyami); color: var(--geppaku); overflow: hidden;
+        font-family: var(--mincho); -webkit-text-size-adjust: 100%; -webkit-user-select: none; user-select: none; }
+      #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: var(--yoiyami); touch-action: none; outline: none; }
+      button { font: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer; }
+
+      #veil { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--yoiyami); transition: opacity .6s ease; z-index: 20; }
+      #veil.gone { opacity: 0; pointer-events: none; }
+      .card { background: var(--yoiyami-hi); border: 1px solid rgba(217,169,76,.45); border-radius: 12px; padding: 22px 24px; width: min(320px, calc(100vw - 48px)); text-align: center; }
+      .card h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: .2em; color: var(--kindei-hi); font-weight: 600; }
+      .card p { margin: 0 0 14px; font-size: 14px; color: var(--sub); }
+      .bar { height: 6px; border-radius: 999px; background: var(--yoiyami); overflow: hidden; }
+      .bar i { display: block; height: 100%; width: 0; background: var(--kindei); border-radius: 999px; transition: width .2s; }
+      .num { margin-top: 10px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+
+      /* 上の帯: 左に歩・日・鍵、右にせり上がりの速さ */
+      #top { position: fixed; z-index: 6; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+        display: flex; align-items: center; justify-content: space-between; gap: 8px; pointer-events: none; }
+      #stat { font-size: 15px; letter-spacing: .06em; padding: 7px 10px; border-radius: 9px; background: rgba(19,19,32,.78); border: 1px solid rgba(217,169,76,.3);
+        font-variant-numeric: tabular-nums; white-space: nowrap; }
+      #stat b { color: var(--kindei-hi); font-weight: 600; }
+      #stat .k { color: var(--sub); font-size: 12px; margin: 0 2px 0 8px; }
+      #rise { pointer-events: auto; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 9px; background: rgba(19,19,32,.78); border: 1px solid rgba(217,169,76,.3); }
+      #rise span { font-size: 12px; line-height: 1.25; color: var(--sub); padding: 0 4px 0 6px; white-space: nowrap; text-align: center; }
+      #rise button { min-width: 44px; height: 36px; padding: 0 6px; white-space: nowrap; border-radius: 9px; font-size: 15px; color: var(--sub);
+        background: linear-gradient(#232033, #161320); border: 1px solid #565064; font-variant-numeric: tabular-nums; }
+      #rise button[aria-pressed="true"] { color: var(--kindei-hi); border-color: var(--kindei); }
+
+      /* 盤の上に重ねる層（部屋の名札・扉の押し所） */
+      #over { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+      .lab { position: absolute; transform: translate(-50%, -50%); font-size: 12px; line-height: 1.3; padding: 1px 5px; border-radius: 9px; white-space: nowrap;
+        color: var(--geppaku); background: rgba(19,19,32,.72); border: 1px solid rgba(157,147,181,.4); font-family: var(--gothic); }
+      .door { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 999px; pointer-events: auto;
+        display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; padding: 0;
+        color: var(--kindei-hi); background: rgba(19,19,32,.82); border: 2px solid var(--kindei); box-shadow: 0 0 0 1px rgba(19,19,32,.9), 0 0 12px rgba(217,169,76,.35); }
+      .door.move, .door.unlock { color: var(--geppaku); border-color: var(--sub); box-shadow: 0 0 0 1px rgba(19,19,32,.9); }
+      .door.locked, .door.lock { color: var(--sub); border-color: #565064; border-style: dashed; box-shadow: none; }
+      .door:active { transform: scale(.94); }
+
+      /* 下: 知らせ・札・計測 */
+      #bottom { position: fixed; z-index: 6; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom));
+        display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+      #toast { align-self: center; max-width: min(460px, 100%); font-size: 14px; line-height: 1.6; padding: 8px 12px; border-radius: 9px; white-space: pre-line; text-align: center;
+        background: rgba(27,27,46,.92); border: 1px solid rgba(217,169,76,.35); opacity: 0; transition: opacity .25s; }
+      #toast.on { opacity: 1; }
+      #cards { display: none; pointer-events: auto; }
+      #cards.on { display: block; }
+      #cards .ask { font-size: 13px; color: var(--sub); text-align: center; margin: 0 0 6px; }
+      #cards .row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+      .fuda { flex: 1 1 0; min-width: 96px; max-width: 150px; min-height: 104px; border-radius: 12px; padding: 10px 8px 8px; text-align: left;
+        color: var(--geppaku); background: linear-gradient(#232033, #18152A); border: 1px solid rgba(217,169,76,.55); display: flex; flex-direction: column; gap: 4px; }
+      .fuda .nm { font-size: 18px; letter-spacing: .08em; color: var(--kindei-hi); }
+      .fuda .ef { font-size: 12.5px; line-height: 1.45; color: var(--geppaku); }
+      .fuda .dr { margin-top: auto; font-size: 12px; color: var(--sub); font-family: var(--gothic); }
+      .fuda:active { background: linear-gradient(#16131F, #1C1929); }
+      #hud { align-self: flex-start; max-width: 100%; background: rgba(19,19,32,.72); border: 1px solid rgba(217,169,76,.22); border-radius: 9px;
+        padding: 4px 8px; font-size: 12px; line-height: 1.5; color: var(--sub); font-family: var(--gothic); }
+      #hud b { color: var(--geppaku); font-weight: 500; }
+      #hud div:empty { display: none; }
+      #err { color: var(--kindei-hi); }
+
+      #dayend { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(13,13,23,.55); }
+      #dayend.on { display: flex; }
+      #dayend .card h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: .15em; color: var(--kindei-hi); font-weight: 600; }
+      #dayend .card p { font-size: 14px; color: var(--geppaku); margin: 0 0 6px; }
+      #dayend .card .s { font-size: 12px; color: var(--sub); margin-bottom: 14px; }
+      .primary { min-height: 44px; padding: 0 22px; border-radius: 999px; font-size: 16px; letter-spacing: .12em; color: var(--kindei-ink); background: var(--kindei-hi); border: 0; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="over"><div id="labs"></div><div id="doors"></div></div>
+    <div id="top">
+      <div id="stat">—</div>
+      <div id="rise" role="group" aria-label="せり上がりの速さ">
+        <span>せり上がり<br>（秒）</span>
+        <button type="button" data-sec="0.6" aria-pressed="false">0.6</button>
+        <button type="button" data-sec="0.9" aria-pressed="false">0.9</button>
+        <button type="button" data-sec="1.2" aria-pressed="false">1.2</button>
+      </div>
+    </div>
+    <div id="bottom">
+      <div id="toast" role="status" aria-live="polite"></div>
+      <div id="cards"><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）</p><div class="row" id="cardRow"></div></div>
+      <div id="hud">
+        <div id="hud-load"><b>読込</b>: 待っています</div>
+        <div id="hud-chibi"><b>ちび</b>: まだ</div>
+        <div id="hud-save"><b>記録</b>: まだ</div>
+        <div id="hud-fps"><b>描画</b>: 測っています</div>
+        <div id="hud-check"></div>
+        <div id="err"></div>
+      </div>
+    </div>
+    <div id="dayend"><div class="card"><h2>今日は、ここまで。</h2><p id="deWhy"></p><p class="s" id="deSum"></p><button type="button" class="primary" id="deNext">次の朝へ</button></div></div>
+    <div id="veil"><div class="card">
+      <h1>ひとよ屋敷</h1>
+      <p>屋敷を組み立てています</p>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="num" id="num">0% ・ 0.0秒</div>
+    </div></div>
+    <script src="Build/Hitoyo.loader.js"></script>
+    <script>
+      (function () {
+        document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+        var lastTouch = 0;
+        document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - lastTouch < 350 && !(e.target.closest && e.target.closest('button'))) e.preventDefault(); lastTouch = n; }, { passive: false });
+
+        var K = window.__kitan, HY = window.__hitoyo;
+        function sec(ms) { return (ms / 1000).toFixed(1); }
+        function el(id) { return document.getElementById(id); }
+        function send(method, arg) { if (window.unityInstance) window.unityInstance.SendMessage('Hitoyo', method, String(arg)); }
+        var canvas = el('unity-canvas');
+        var DIRNAME = { N: '北', E: '東', S: '南', W: '西' };
+        var KIND = { draft: ['扉', 'の扉をひらく（札が出る）'], move: ['進', 'の部屋へ移る'], unlock: ['鍵', 'の錠を鍵で外して入る'], locked: ['錠', 'は錠がかかっている'], lock: ['錠', 'は奥の間の錠'] };
+
+        // せり上がりの速さ（?rise= で開ける。押したら URL も書き換える）
+        function paintRise(s) { Array.prototype.forEach.call(document.querySelectorAll('#rise button'), function (b) { b.setAttribute('aria-pressed', Math.abs(parseFloat(b.dataset.sec) - s) < 1e-3 ? 'true' : 'false'); }); }
+        Array.prototype.forEach.call(document.querySelectorAll('#rise button'), function (b) {
+          b.addEventListener('click', function () {
+            send('SetRise', b.dataset.sec);
+            try { var u = new URL(location.href); u.searchParams.set('rise', b.dataset.sec); history.replaceState(null, '', u.toString()); } catch (e) {}
+          });
+        });
+        el('deNext').addEventListener('click', function () { send('NextDay', ''); });
+
+        var toastTimer = 0;
+        function toast(t) { var n = el('toast'); n.textContent = t; n.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { n.classList.remove('on'); }, 2600 + t.length * 45); }
+
+        function place(node, x, y) {
+          var r = canvas.getBoundingClientRect();
+          node.style.left = (r.left + x * r.width).toFixed(1) + 'px';
+          node.style.top = (r.top + y * r.height).toFixed(1) + 'px';
+        }
+
+        window.hitoyoUi = function (s) {
+          var m; try { m = JSON.parse(s); } catch (e) { return; }
+          switch (m.t) {
+            case 'hud':
+              el('stat').innerHTML = '<b>' + m.day + '</b>日目<span class="k">歩</span><b>' + m.steps + '</b><span class="k">鍵</span><b>' + m.keys + '</b>';
+              HY.hud = m; break;
+            case 'rise': paintRise(m.sec); HY.rise = m.sec; break;
+            case 'toast': toast(m.text); HY.toasts.push(m.text); break;
+            case 'checkDone': HY.checkDone = m.text; break;
+            case 'state': HY.state = m; break;
+            case 'labels': {
+              var box = el('labs'); box.textContent = '';
+              m.list.forEach(function (l) { var d = document.createElement('div'); d.className = 'lab'; d.textContent = l.text; place(d, l.x, l.y); box.appendChild(d); });
+              HY.labels = m.list; break;
+            }
+            case 'doors': {
+              var box = el('doors'); box.textContent = '';
+              m.list.forEach(function (d) {
+                var k = KIND[d.kind] || ['扉', ''];
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind; b.textContent = k[0];
+                b.dataset.dir = d.dir; b.setAttribute('aria-label', DIRNAME[d.dir] + k[1]);
+                place(b, d.x, d.y);
+                b.addEventListener('click', function () { send('Door', d.dir); });
+                box.appendChild(b);
+              });
+              HY.doors = m.list; break;
+            }
+            case 'cards': {
+              var row = el('cardRow'); row.textContent = '';
+              m.list.forEach(function (c) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'fuda'; b.dataset.i = c.i;
+                b.innerHTML = '<span class="nm"></span><span class="ef"></span><span class="dr"></span>';
+                b.querySelector('.nm').textContent = c.name; b.querySelector('.ef').textContent = c.effect; b.querySelector('.dr').textContent = c.doors;
+                b.addEventListener('click', function () { send('Pick', c.i); });
+                row.appendChild(b);
+              });
+              el('cards').classList.toggle('on', m.list.length > 0);
+              HY.cards = m.list; break;
+            }
+            case 'dayEnd':
+              el('dayend').classList.toggle('on', !!m.show);
+              if (m.show) { el('deWhy').textContent = m.text; el('deSum').textContent = m.day + '日目・置いた部屋 ' + m.rooms + '・これまでの歩 ' + m.total; }
+              HY.dayEnd = m; break;
+          }
+        };
+
+        window.kitanStatus = function (slot, text) {
+          if (slot === 'look') return;
+          var node = el('hud-' + slot); if (!node) return;
+          var mm = /^([^:：]+)[:：]\s*(.*)$/.exec(text);
+          node.innerHTML = '';
+          if (mm) { var b = document.createElement('b'); b.textContent = mm[1]; node.appendChild(b); node.appendChild(document.createTextNode(': ' + mm[2])); }
+          else node.textContent = text;
+        };
+        window.addEventListener('error', function (e) { el('err').textContent = '不具合: ' + String(e.message || e).slice(0, 120); });
+
+        K.marks['loader-start'] = Math.round(performance.now());
+        var tick = setInterval(function () { el('num').textContent = el('num').dataset.p + '% ・ ' + sec(performance.now()) + '秒'; }, 100);
+        el('num').dataset.p = '0';
+        createUnityInstance(canvas, {
+          dataUrl: "Build/Hitoyo.data.unityweb",
+          frameworkUrl: "Build/Hitoyo.framework.js.unityweb",
+          codeUrl: "Build/Hitoyo.wasm.unityweb",
+          // Unity 6000.0.36 の不具合よけ: fallback 有効時はスレッド無しでも workerUrl を取りにいく
+          workerUrl: "TemplateData/noop-worker.js",
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "kitan-circle",
+          productName: "ひとよ屋敷 便2",
+          productVersion: "1.0",
+          devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
+        }, function (p) {
+          var pct = Math.round(p * 100);
+          el('num').dataset.p = String(pct);
+          el('bar').style.width = pct + '%';
+          if (p >= 0.9 && !K.marks['downloaded']) K.marks['downloaded'] = Math.round(performance.now());
+        }).then(function (inst) {
+          window.unityInstance = inst;
+          K.marks['instance-ready'] = Math.round(performance.now());
+          clearInterval(tick);
+          el('veil').classList.add('gone');
+          window.kitanStatus('load', '読込: 屋敷が出るまで ' + sec(K.marks['instance-ready']) + '秒');
+        }).catch(function (msg) {
+          clearInterval(tick);
+          el('num').textContent = '開けませんでした';
+          el('err').textContent = '不具合: ' + String(msg).slice(0, 160);
+        });
+      })();
+    </script>
+  </body>
+</html>
