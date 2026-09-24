@@ -9,7 +9,9 @@
       window.__kitan = { t0: performance.now(), marks: {} };
       window.kitanMark = function (name) { window.__kitan.marks[name] = Math.round(performance.now()); };
       window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '', view: null,
-        lay: { runs: 0, withDoors: 0, overlapAfter: 0, moved: 0, hidden: 0, offscreen: 0, hitUi: 0, doorDoor: 0, minDoor: 999, worst: '' } };
+        lay: { runs: 0, withDoors: 0, overlapAfter: 0, moved: 0, hidden: 0, offscreen: 0, hitUi: 0, doorDoor: 0, minDoor: 999, worst: '',
+               doorN: 0, devMax: 0, devBad: 0, doorChibi: 0, doorChibiMoving: 0, settledN: 0, roomWMin: 9, roomWMax: 0, roomCyMin: 9, roomCyMax: 0 },
+        cardsCheck: null };
     </script>
     <!-- 便2c: わいわいの sdk.js はページの組み立てを止めない（async）。セーブを呼ぶのは読み込みの後なので間に合う -->
     <script src="https://waiwai.town/sdk.js" crossorigin="anonymous" async></script>
@@ -118,10 +120,15 @@
       #cards { display: none; pointer-events: auto; }
       #cards.on { display: block; }
       #cards .ask { font-size: 13px; color: var(--sub); text-align: center; margin: 0 0 6px; }
-      #cards .row { display: flex; gap: 8px; justify-content: center; }
+      /* 便2d: 札は 3 列の格子（6 本の細い列を 2 本ずつ使う）。行の高さは全部そろう（1fr）。5 枚（占いの間の後）は 3＋2 で下の 2 枚を真ん中に */
+      #cards .row { display: grid; grid-template-columns: repeat(6, minmax(0, 62px)); grid-auto-rows: 1fr; gap: 8px; justify-content: center; }
+      #cards .row .fuda { grid-column: span 2; }
+      #cards .row .fuda:nth-child(4):nth-last-child(2) { grid-column: 2 / span 2; }
+      #cards .row .fuda:nth-child(5):nth-last-child(1) { grid-column: 4 / span 2; }
       #cards.on ~ #hud { display: none; }
       /* 札（便2c）: 縦長の御札。藍の地に雲紋・細い金の枠と四隅の唐草と星・上に紅い蝕の月・中央に墨の筆の一字・下の帯に名と効き目 */
-      .fuda { position: relative; flex: 1 1 0; min-width: 0; max-width: 132px; height: 186px; padding: 0; border: 0; border-radius: 5px; text-align: center;
+      /* 便2d（オーナー 09-24「解説の文字情報の方が重要」）: 上の一字の枠は全札で同じ高さ（84px）に固定して字を小さめに、残りを帯（名・効き目・扉）に回す。札の高さは帯の長い札に合わせてそろう */
+      .fuda { position: relative; min-width: 0; min-height: 176px; padding: 0; border: 0; border-radius: 5px; text-align: center;
         color: var(--geppaku); display: flex; flex-direction: column; overflow: hidden; transition: transform 90ms ease-out;
         background: var(--kumo) center / 56px 36px, radial-gradient(ellipse 140% 90% at 50% 20%, #24234A, #141327 75%);
         box-shadow: 0 0 0 1px #95713A, inset 0 0 0 4px #141327, inset 0 0 0 4.8px rgba(217,169,76,.7), 0 6px 16px rgba(0,0,0,.6); }
@@ -132,13 +139,13 @@
       .fuda .eclipse { position: absolute; top: 12px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%;
         background: radial-gradient(circle at 64% 36%, #141327 40%, transparent 43%), var(--shokko); box-shadow: 0 0 0 1.2px var(--kindei), 0 0 10px rgba(201,58,46,.35); }
       .fuda .hana { position: absolute; top: 32px; left: 50%; width: 44px; margin-left: -22px; height: 1px; background: linear-gradient(90deg, transparent, var(--kindei), transparent); }
-      .fuda .ji { position: relative; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding-top: 22px;
-        font-family: var(--fude); font-size: 58px; line-height: 1; color: var(--sumi); -webkit-text-stroke: 4px var(--kindei-hi); paint-order: stroke fill;
+      .fuda .ji { position: relative; flex: 0 0 84px; height: 84px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding-top: 30px; padding-bottom: 4px; overflow: hidden;
+        font-family: var(--fude); font-size: 40px; line-height: 1; color: var(--sumi); -webkit-text-stroke: 3.2px var(--kindei-hi); paint-order: stroke fill;
         text-shadow: 0 0 16px rgba(240,206,126,.35); }
       .fuda .ji::before { /* 字の後ろの金のかすれ（流れ） */
         content: ""; position: absolute; left: 14%; right: 14%; top: 56%; height: 16px; border-radius: 50%;
         background: radial-gradient(ellipse at 40% 50%, rgba(217,169,76,.28), transparent 70%); transform: rotate(-12deg); }
-      .fuda .obi { position: relative; flex: 0 0 auto; min-height: 92px; box-sizing: border-box; padding: 6px 8px 12px; background: linear-gradient(#100E1C, #0C0B16); border-top: 1px solid rgba(217,169,76,.55); }
+      .fuda .obi { position: relative; flex: 1 1 auto; min-height: 92px; box-sizing: border-box; padding: 6px 8px 12px; background: linear-gradient(#100E1C, #0C0B16); border-top: 1px solid rgba(217,169,76,.55); }
       .fuda .nm { display: block; font-size: 14px; font-weight: 700; letter-spacing: .12em; color: var(--kindei-hi); line-height: 1.3; }
       .fuda .ef { display: block; font-size: 12px; line-height: 1.45; color: var(--geppaku); margin-top: 2px; }
       .fuda .dr { display: block; font-size: 12px; line-height: 1.4; color: var(--sub); margin-top: 2px; }
@@ -235,12 +242,14 @@
           node.style.top = (r.top + y * r.height).toFixed(1) + 'px';
         }
 
-        // ---- 押し所と名札の置き場（便2改） ----
-        // 扉の押し所: いまの部屋の画面上の矩形の外へ、扉の口の向きに押し出す（部屋の中身に重ねない・画面の端寄り）。
+        // ---- 押し所と名札の置き場（便2改・便2d） ----
+        // 扉の押し所（便2d）: 部屋の内側。Unity が「扉の口の中心（床）から内側へ入れた点」を画面へ投影して送る（x,y）。その点にそのまま置く（足し算で動かさない）。
+        //   検査: 丸の中心と投影点のずれ（px）・丸と栞の重なり・画面の外 を数える。?doorshift=px でわざとずらすと落ちる。
         // 名札: 押し所・上の帯・見取り図のボタンに重なったら、重ならない所まで押しのける。押しのけきれなければ出さない。
         var lastDoors = null, lastLabels = null;
         var HALF = 25, GAP = 6;
         var NOFIX = new URLSearchParams(location.search).get('labfix') === '0';   // 検分: 名札を押しのけない（重なりを検査が数えるか）
+        var DSHIFT = parseFloat(new URLSearchParams(location.search).get('doorshift')) || 0;   // 検分: 丸をわざとずらす（ずれの検査が落ちるか）
         function rectOf(n) { var r = n.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; }
         function hit(a, b, m) { m = m || 0; return a.l < b.r + m && b.l < a.r + m && a.t < b.b + m && b.t < a.b + m; }
         function layout() {
@@ -252,15 +261,15 @@
           if (m && m.list.length) {
             L.withDoors++;
             var rx0 = R.left + m.rx0 * R.width, rx1 = R.left + m.rx1 * R.width, ry0 = R.top + m.ry0 * R.height, ry1 = R.top + m.ry1 * R.height;
-            var fx0 = R.left + m.fx0 * R.width - 14, fx1 = R.left + m.fx1 * R.width + 14, fy0 = R.top + m.fy0 * R.height - 14, fy1 = R.top + m.fy1 * R.height + 14;
-            var minX = Math.max(R.left + 4, fx0) + HALF, maxX = Math.min(R.right - 4, fx1) - HALF;
-            var minY = Math.max(topR.b + 4, fy0) + HALF, maxY = Math.min(R.bottom - 4, fy1) - HALF;
+            if (m.settled) {   // 部屋の大きさと位置は、カメラが落ち着いた画面で数える
+              L.settledN++;
+              L.roomWMin = Math.min(L.roomWMin, (rx1 - rx0) / R.width); L.roomWMax = Math.max(L.roomWMax, (rx1 - rx0) / R.width);
+              var rcy = ((ry0 + ry1) / 2 - R.top) / R.height; L.roomCyMin = Math.min(L.roomCyMin, rcy); L.roomCyMax = Math.max(L.roomCyMax, rcy);
+            }
+            var chR = m.cx1 > m.cx0 ? { l: R.left + m.cx0 * R.width, r: R.left + m.cx1 * R.width, t: R.top + m.cy0 * R.height, b: R.top + m.cy1 * R.height } : null;
             m.list.forEach(function (d) {
-              // 北・南は扉の口の真上／真下、東・西は真横に。部屋の矩形の外へ出す
-              var ax = R.left + d.x * R.width, ay = R.top + d.y * R.height, px = ax, py = ay;
-              if (d.dir === 'N') py = ry0 - HALF - GAP; else if (d.dir === 'S') py = ry1 + HALF + GAP;
-              else if (d.dir === 'E') px = rx1 + HALF + GAP; else px = rx0 - HALF - GAP;
-              px = Math.min(maxX, Math.max(minX, px)); py = Math.min(maxY, Math.max(minY, py));
+              // 丸は投影点にそのまま置く（寄り・引き・移動中も Unity がカメラの替わるたびに送り直す）
+              var px = R.left + d.x * R.width + DSHIFT, py = R.top + d.y * R.height + DSHIFT;
               var k = KIND[d.kind] || ['扉', ''];
               var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind;
               b.innerHTML = '<span class="hoshi"></span><span class="eclipse"></span><span class="ji"></span>'; b.querySelector('.ji').textContent = k[0];
@@ -268,6 +277,10 @@
               b.style.left = px.toFixed(1) + 'px'; b.style.top = py.toFixed(1) + 'px';
               b.addEventListener('click', function () { send('Door', d.dir); });
               box.appendChild(b); drs.push(b);
+              var br = b.getBoundingClientRect(), cxp = br.left + br.width / 2, cyp = br.top + br.height / 2;
+              var dev = Math.hypot(cxp - (R.left + d.x * R.width), cyp - (R.top + d.y * R.height));
+              L.doorN++; L.devMax = Math.max(L.devMax, dev); if (dev > 2) { L.devBad++; L.worst = 'dev ' + d.dir + ' ' + dev.toFixed(1); }
+              if (chR && hit(rectOf(b), chR)) { if (m.settled) { L.doorChibi++; L.worst = 'chibi ' + d.dir; } else L.doorChibiMoving++; }   // 栞と重なる（落ち着いた画面／寄りきる途中は別に数える）
             });
           }
           var dRects = drs.map(rectOf);
@@ -300,7 +313,39 @@
           });
           Array.prototype.forEach.call(lbox.children, function (n) { var r = rectOf(n); dRects.forEach(function (d) { if (hit(r, d)) { L.overlapAfter++; L.worst = 'label-door ' + n.textContent; } }); });
         }
-        window.addEventListener('resize', function () { requestAnimationFrame(layout); });
+        function sendDoorRadius() { var R = canvas.getBoundingClientRect(); if (R.height > 0) send('SetDoorRadius', (HALF / R.height).toFixed(5)); }   // 便2d: 丸の半径を Unity へ（北の丸が栞に重ならない高さを Unity が選ぶ）
+        window.addEventListener('resize', function () { sendDoorRadius(); requestAnimationFrame(layout); });
+
+        // 便2d: 札の検査（出るたびに数える）。一字が上の枠に収まる／名・効き目・扉が帯に収まる（切れ・はみ出しなし）／並んだ札の高さが同じ／字は 12px 以上
+        function cardsCheck(acc) {
+          acc = acc || { shown: 0, cards: 0, jiOut: 0, obiOut: 0, heightMismatch: 0, small: 0, jiH: [], worst: '' };
+          var fs = Array.prototype.slice.call(document.querySelectorAll('#cardRow .fuda')); if (!fs.length) return acc;
+          acc.shown++;
+          var hs = fs.map(function (f) { return Math.round(f.getBoundingClientRect().height); });
+          if (Math.max.apply(null, hs) - Math.min.apply(null, hs) > 1) { acc.heightMismatch++; acc.worst = 'height ' + hs.join('/'); }
+          fs.forEach(function (f) {
+            acc.cards++;
+            var ji = f.querySelector('.ji'), jr = ji.getBoundingClientRect();
+            // 字の墨の範囲（行の箱ではなく、字形そのもの＋縁取り）: 字の行の箱（Range）の上端に canvas の measureText の値を足して、基線と上下の張り出しを出す
+            var rg = document.createRange(); rg.selectNodeContents(ji); var lb = rg.getBoundingClientRect();
+            var cs = getComputedStyle(ji), cx = (cardsCheck.cv || (cardsCheck.cv = document.createElement('canvas'))).getContext('2d');
+            cx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily; var tm = cx.measureText(ji.textContent), sw = parseFloat(cs.webkitTextStrokeWidth || 0) / 2;
+            var base = lb.top + tm.fontBoundingBoxAscent;
+            var gr = { top: base - tm.actualBoundingBoxAscent - sw, bottom: base + tm.actualBoundingBoxDescent + sw, left: lb.left + tm.actualBoundingBoxLeft * -1 - sw, right: lb.left + tm.actualBoundingBoxRight + sw };
+            var hana = f.querySelector('.hana').getBoundingClientRect();
+            if (gr.top < hana.bottom - 0.5 || gr.bottom > jr.bottom + 0.5 || gr.left < jr.left || gr.right > jr.right) { acc.jiOut++; acc.worst = 'ji ' + f.dataset.id + ' ' + [gr.top, gr.bottom, hana.bottom, jr.bottom].map(Math.round).join(','); }
+            if (acc.jiH.indexOf(Math.round(jr.height)) < 0) acc.jiH.push(Math.round(jr.height));
+            var obi = f.querySelector('.obi'), or = obi.getBoundingClientRect();
+            if (obi.scrollHeight > obi.clientHeight + 1) { acc.obiOut++; acc.worst = 'obi-h ' + f.dataset.id; }
+            ['.nm', '.ef', '.dr'].forEach(function (q) {
+              var n = f.querySelector(q), r = n.getBoundingClientRect();
+              if (n.scrollWidth > n.clientWidth + 1 || r.left < or.left - 0.5 || r.right > or.right + 0.5 || r.bottom > or.bottom + 0.5) { acc.obiOut++; acc.worst = 'obi ' + f.dataset.id + q; }
+              if (parseFloat(getComputedStyle(n).fontSize) < 12) { acc.small++; acc.worst = 'small ' + f.dataset.id + q; }
+            });
+          });
+          return acc;
+        }
+        window.__hitoyoCardsCheck = function () { return cardsCheck(null); };
 
         window.hitoyoUi = function (s) {
           var m; try { m = JSON.parse(s); } catch (e) { return; }
@@ -313,7 +358,7 @@
             case 'checkDone': HY.checkDone = m.text; break;
             case 'state': HY.state = m; break;
             case 'labels': lastLabels = m.list; HY.labels = m.list; layout(); break;
-            case 'doors': lastDoors = m; HY.doors = m.list; layout(); break;
+            case 'doors': lastDoors = m; HY.doors = m.list; HY.doorsMsg = m; layout(); break;
             case 'view': paintView(m); HY.view = m; layout(); break;
             case 'cards': {
               var row = el('cardRow'); row.textContent = '';
@@ -328,7 +373,9 @@
                 row.appendChild(b);
               });
               el('cards').classList.toggle('on', m.list.length > 0);
-              HY.cards = m.list; break;
+              HY.cards = m.list;
+              if (m.list.length) requestAnimationFrame(function () { HY.cardsCheck = cardsCheck(HY.cardsCheck); });
+              break;
             }
             case 'dayEnd':
               el('dayend').classList.toggle('on', !!m.show);
@@ -388,7 +435,7 @@
           // 便2c: 二度目からは端末に残した写しを使う（中身が変わったかだけ尋ねる＝304 なら取り寄せない）。既定では data だけで、wasm と framework は毎回取り寄せていた
           cacheControl: function (url) { return /(^|\/)Build\//.test(url) ? 'must-revalidate' : 'no-store'; },   // url は相対（Build/…）で来る
           companyName: "kitan-circle",
-          productName: "ひとよ屋敷 便2c",
+          productName: "ひとよ屋敷 便2d",
           productVersion: "1.0",
           devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
         }, function (p) {
@@ -397,7 +444,7 @@
           if (p >= 0.9 && !K.marks['downloaded']) K.marks['downloaded'] = Math.round(performance.now());
           paintLoad();
         }).then(function (inst) {
-          window.unityInstance = inst;
+          window.unityInstance = inst; sendDoorRadius();
           K.marks['instance-ready'] = Math.round(performance.now());
           clearInterval(tick); clearInterval(tipTimer);
           lastP = 1; paintLoad();
