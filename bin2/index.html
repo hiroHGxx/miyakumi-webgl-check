@@ -3,21 +3,31 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>ひとよ屋敷（便2改・寄りと見取り図）</title>
-    <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2改）。栞のいる部屋に寄って扉を押すと札が出て、選んだ部屋が盤から迫り上がり、栞が跳ねて入る。「見取り図」で屋敷の全体へ引ける。">
+    <title>ひとよ屋敷（便2c・御札と右下の眺め）</title>
+    <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2c）。栞のいる部屋に寄って扉を押すと札が三枚出て、選んだ部屋が盤から迫り上がり、栞が跳ねて入る。「見取り図」で屋敷の全体へ引ける。">
     <script>
       window.__kitan = { t0: performance.now(), marks: {} };
       window.kitanMark = function (name) { window.__kitan.marks[name] = Math.round(performance.now()); };
       window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '', view: null,
         lay: { runs: 0, withDoors: 0, overlapAfter: 0, moved: 0, hidden: 0, offscreen: 0, hitUi: 0, doorDoor: 0, minDoor: 999, worst: '' } };
     </script>
-    <script src="https://waiwai.town/sdk.js" crossorigin="anonymous"></script>
+    <!-- 便2c: わいわいの sdk.js はページの組み立てを止めない（async）。セーブを呼ぶのは読み込みの後なので間に合う -->
+    <script src="https://waiwai.town/sdk.js" crossorigin="anonymous" async></script>
+    <!-- 書体（組み立てを止めないよう media=print で取り、届いたら当てる）: 本文・札の帯は Shippori Mincho B1（公式 UI キット）、札と押し所の一字は Yuji Boku（筆）。筆は使う字だけ取る（text=） -->
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&display=swap">
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&display=block&text=%E5%BB%8A%E5%BA%A7%E5%B7%A6%E5%8F%B3%E7%B4%8D%E4%BA%95%E8%BF%B7%E5%8D%A0%E6%9B%B8%E7%A5%AD%E8%94%B5%E9%9A%A0%E6%89%89%E9%80%B2%E9%8D%B5%E9%8C%A0%E3%81%B2%E3%81%A8%E3%82%88%E5%B1%8B%E6%95%B7">
     <style>
       /* 色は data/design-tokens.json（kitan-lore get_design_tone の写し）から */
       :root {
         --yoiyami: #131320; --yoiyami-hi: #1B1B2E; --geppaku: #E8E4D8; --sub: #9D93B5;
-        --kindei: #D9A94C; --kindei-hi: #F0CE7E; --kindei-ink: #1C1508; --shokko: #E0562F;
-        --mincho: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        --kindei: #D9A94C; --kindei-hi: #F0CE7E; --kindei-ink: #1C1508; --shokko: #C93A2E; --shokko-hi: #E0562F;
+        --panel: #100E1C; --sumi: #0B0A12;
+        --mincho: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+        --fude: "Yuji Boku", "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
+        /* 藍の雲紋（地に敷く）・金の隅飾り（唐草の巻きと星）。どちらも手描きの SVG（公式の絵は使わない） */
+        --kumo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='36' viewBox='0 0 56 36'%3E%3Cg fill='none' stroke='%232F3572' stroke-width='1.1' stroke-linecap='round' opacity='.75'%3E%3Cpath d='M4 26c0-5 5-7 8-4 1-6 9-7 11-1 3-3 8-1 7 4'/%3E%3Cpath d='M12 22c1-2 4-2 4 1'/%3E%3Cpath d='M30 10c0-4 4-6 7-3 1-5 8-5 9 0 3-2 7 0 6 4'/%3E%3Cpath d='M37 7c1-2 3-2 3 1'/%3E%3C/g%3E%3C/svg%3E");
+        --sumi-kado: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cg fill='none' stroke='%23D9A94C' stroke-width='1.1' stroke-linecap='round'%3E%3Cpath d='M2 20V6a4 4 0 0 1 4-4h14'/%3E%3Cpath d='M5 13c0-3 2-4 4-3s1 4-1 3'/%3E%3Cpath d='M13 5c-3 0-4 2-3 4s4 1 3-1'/%3E%3C/g%3E%3Cpath d='M17 7l.9 2.1L20 10l-2.1.9L17 13l-.9-2.1L14 10l2.1-.9z' fill='%23F0CE7E'/%3E%3C/svg%3E");
         --gothic: "Hiragino Sans", "Yu Gothic", sans-serif;
       }
       html, body { margin: 0; padding: 0; height: 100%; background: var(--yoiyami); color: var(--geppaku); overflow: hidden;
@@ -25,8 +35,27 @@
       #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: var(--yoiyami); touch-action: none; outline: none; }
       button { font: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer; }
 
-      #veil { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--yoiyami); transition: opacity .6s ease; z-index: 20; }
+      #veil { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 20; transition: opacity .6s ease;
+        background: var(--kumo) repeat, radial-gradient(ellipse 120% 80% at 50% 0%, #22203C, var(--yoiyami) 60%); background-size: 56px 36px, auto; }
       #veil.gone { opacity: 0; pointer-events: none; }
+      /* 読み込み画面（便2c）: 題名・金泥の線の進み・盤に部屋が一つずつ灯る一枚・遊び方の心得を順に */
+      .ld { width: min(320px, calc(100vw - 32px)); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .ld .moon { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 62% 38%, #1B1B2E 44%, transparent 46%), var(--shokko);
+        box-shadow: 0 0 0 1.5px var(--kindei), 0 0 14px rgba(201,58,46,.35); }
+      .ld h1 { margin: 0; font-family: var(--fude); font-weight: 400; font-size: 44px; letter-spacing: .18em; line-height: 1.1; padding-left: .18em;
+        color: var(--sumi); -webkit-text-stroke: 3px var(--kindei-hi); paint-order: stroke fill; text-shadow: 0 0 18px rgba(240,206,126,.3); }
+      .ld .sub { font-size: 12px; letter-spacing: .3em; color: var(--sub); margin-top: -6px; }
+      .ld svg.plan { width: 176px; height: 176px; overflow: visible; }
+      .plan .cell { fill: #1E1D34; stroke: rgba(217,169,76,.18); stroke-width: .6; transition: fill .5s ease, stroke .5s ease; }
+      .plan .cell.on { fill: #2A2440; stroke: var(--kindei); }
+      .plan .cell.here { fill: #3A2E22; stroke: var(--kindei-hi); }
+      .ld .line { position: relative; width: 100%; height: 1px; background: rgba(232,228,216,.14); }
+      .ld .line i { position: absolute; left: 0; top: -.5px; height: 2px; width: 0; background: linear-gradient(90deg, #95713A, var(--kindei) 70%, var(--kindei-hi)); transition: width .25s ease; }
+      .ld .line i::after { content: ""; position: absolute; right: -2px; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: #FFF4D6; box-shadow: 0 0 8px 2px rgba(240,206,126,.8); }
+      .ld .num { font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; letter-spacing: .05em; min-height: 1.5em; }
+      .ld .tip { font-size: 13px; line-height: 1.8; color: var(--geppaku); min-height: 3.6em; transition: opacity .5s ease; }
+      .ld .slow { font-size: 12px; line-height: 1.7; color: var(--sub); display: none; }
+      .ld .slow.on { display: block; }
       .card { background: var(--yoiyami-hi); border: 1px solid rgba(217,169,76,.45); border-radius: 12px; padding: 22px 24px; width: min(320px, calc(100vw - 48px)); text-align: center; }
       .card h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: .2em; color: var(--kindei-hi); font-weight: 600; }
       .card p { margin: 0 0 14px; font-size: 14px; color: var(--sub); }
@@ -46,6 +75,7 @@
       #rise button { min-width: 44px; height: 36px; padding: 0 6px; white-space: nowrap; border-radius: 9px; font-size: 15px; color: var(--sub);
         background: linear-gradient(#232033, #161320); border: 1px solid #565064; font-variant-numeric: tabular-nums; }
       #rise button[aria-pressed="true"] { color: var(--kindei-hi); border-color: var(--kindei); }
+      @media (max-width: 360px) { #rise span { display: none; } #rise button { min-width: 44px; padding: 0 4px; } #stat { padding: 7px 8px; } }
       /* 見取り図（寄り⇔全体）。上の帯の下・右寄せ */
       #mapBtn { position: fixed; z-index: 6; top: calc(max(8px, env(safe-area-inset-top)) + 52px); right: max(8px, env(safe-area-inset-right));
         min-width: 44px; height: 40px; padding: 0 14px; border-radius: 999px; font-size: 15px; letter-spacing: .1em; white-space: nowrap;
@@ -57,11 +87,26 @@
       #over { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
       .lab { position: absolute; transform: translate(-50%, -50%); font-size: 12px; line-height: 1.3; padding: 1px 5px; border-radius: 9px; white-space: nowrap;
         color: var(--geppaku); background: rgba(19,19,32,.72); border: 1px solid rgba(157,147,181,.4); font-family: var(--gothic); }
-      .door { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 999px; pointer-events: auto;
-        display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; padding: 0;
-        color: var(--kindei-hi); background: rgba(19,19,32,.82); border: 2px solid var(--kindei); box-shadow: 0 0 0 1px rgba(19,19,32,.9), 0 0 12px rgba(217,169,76,.35); }
-      .door.move, .door.unlock { color: var(--geppaku); border-color: var(--sub); box-shadow: 0 0 0 1px rgba(19,19,32,.9); }
-      .door.locked, .door.lock { color: var(--sub); border-color: #565064; border-style: dashed; box-shadow: none; }
+      /* 扉の押し所（便2c）: 浄夜の御札の語彙を丸に写す＝藍の地に雲紋・金の細い輪（二重）・四方の星・上に紅い蝕の点・中央に墨の筆の一字 */
+      .door { position: absolute; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 999px; pointer-events: auto; padding: 0;
+        display: flex; align-items: center; justify-content: center; border: 0;
+        background: var(--kumo) center / 34px 22px, radial-gradient(circle at 50% 35%, #26264A, #151428 70%);
+        box-shadow: 0 0 0 1.2px var(--kindei), inset 0 0 0 3px #151428, inset 0 0 0 3.8px rgba(217,169,76,.55), 0 3px 10px rgba(0,0,0,.6);
+        transition: transform 90ms ease-out; }
+      .door .ji { font-family: var(--fude); font-size: 25px; line-height: 1; color: var(--sumi); -webkit-text-stroke: 2.6px var(--kindei-hi); paint-order: stroke fill;
+        text-shadow: 0 0 8px rgba(240,206,126,.45); transform: translateY(1px); }
+      .door .eclipse { position: absolute; top: -5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+        background: radial-gradient(circle at 64% 36%, #151428 40%, transparent 43%), var(--shokko); box-shadow: 0 0 0 1px var(--kindei); }
+      .door .hoshi { position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(circle, var(--kindei-hi) 1.2px, transparent 1.6px) 50% 100% / 6px 6px no-repeat,
+                    radial-gradient(circle, var(--kindei-hi) 1.2px, transparent 1.6px) 0 50% / 6px 6px no-repeat,
+                    radial-gradient(circle, var(--kindei-hi) 1.2px, transparent 1.6px) 100% 50% / 6px 6px no-repeat; }
+      .door.move, .door.unlock { box-shadow: 0 0 0 1.2px #8C8398, inset 0 0 0 3px #151428, inset 0 0 0 3.8px rgba(232,228,216,.3), 0 3px 10px rgba(0,0,0,.6); }
+      .door.move .ji, .door.unlock .ji { -webkit-text-stroke-color: var(--geppaku); text-shadow: 0 0 6px rgba(232,228,216,.3); }
+      .door.move .eclipse, .door.unlock .eclipse, .door.locked .eclipse, .door.lock .eclipse { display: none; }
+      .door.locked, .door.lock { box-shadow: 0 0 0 1.2px #565064, inset 0 0 0 3px #151428, 0 3px 10px rgba(0,0,0,.6); }
+      .door.locked .ji, .door.lock .ji { -webkit-text-stroke-color: #8C8398; text-shadow: none; }
+      .door.locked .hoshi, .door.lock .hoshi { display: none; }
       .door:active { transform: scale(.94); }
 
       /* 下: 知らせ・札・計測 */
@@ -73,13 +118,31 @@
       #cards { display: none; pointer-events: auto; }
       #cards.on { display: block; }
       #cards .ask { font-size: 13px; color: var(--sub); text-align: center; margin: 0 0 6px; }
-      #cards .row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-      .fuda { flex: 1 1 0; min-width: 96px; max-width: 150px; min-height: 104px; border-radius: 12px; padding: 10px 8px 8px; text-align: left;
-        color: var(--geppaku); background: linear-gradient(#232033, #18152A); border: 1px solid rgba(217,169,76,.55); display: flex; flex-direction: column; gap: 4px; }
-      .fuda .nm { font-size: 18px; letter-spacing: .08em; color: var(--kindei-hi); }
-      .fuda .ef { font-size: 12.5px; line-height: 1.45; color: var(--geppaku); }
-      .fuda .dr { margin-top: auto; font-size: 12px; color: var(--sub); font-family: var(--gothic); }
-      .fuda:active { background: linear-gradient(#16131F, #1C1929); }
+      #cards .row { display: flex; gap: 8px; justify-content: center; }
+      #cards.on ~ #hud { display: none; }
+      /* 札（便2c）: 縦長の御札。藍の地に雲紋・細い金の枠と四隅の唐草と星・上に紅い蝕の月・中央に墨の筆の一字・下の帯に名と効き目 */
+      .fuda { position: relative; flex: 1 1 0; min-width: 0; max-width: 132px; height: 186px; padding: 0; border: 0; border-radius: 5px; text-align: center;
+        color: var(--geppaku); display: flex; flex-direction: column; overflow: hidden; transition: transform 90ms ease-out;
+        background: var(--kumo) center / 56px 36px, radial-gradient(ellipse 140% 90% at 50% 20%, #24234A, #141327 75%);
+        box-shadow: 0 0 0 1px #95713A, inset 0 0 0 4px #141327, inset 0 0 0 4.8px rgba(217,169,76,.7), 0 6px 16px rgba(0,0,0,.6); }
+      .fuda .k { position: absolute; z-index: 2; width: 22px; height: 22px; background: var(--sumi-kado) no-repeat; pointer-events: none; }
+      .fuda .k.tl { left: 6px; top: 6px; } .fuda .k.tr { right: 6px; top: 6px; transform: scaleX(-1); }
+      .fuda .obi::after { /* 帯の下の金の小さな飾り（下の隅飾りは文字に重なるので置かない） */
+        content: ""; position: absolute; left: 50%; bottom: 5px; width: 36px; height: 1px; margin-left: -18px; background: linear-gradient(90deg, transparent, var(--kindei), transparent); }
+      .fuda .eclipse { position: absolute; top: 12px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%;
+        background: radial-gradient(circle at 64% 36%, #141327 40%, transparent 43%), var(--shokko); box-shadow: 0 0 0 1.2px var(--kindei), 0 0 10px rgba(201,58,46,.35); }
+      .fuda .hana { position: absolute; top: 32px; left: 50%; width: 44px; margin-left: -22px; height: 1px; background: linear-gradient(90deg, transparent, var(--kindei), transparent); }
+      .fuda .ji { position: relative; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding-top: 22px;
+        font-family: var(--fude); font-size: 58px; line-height: 1; color: var(--sumi); -webkit-text-stroke: 4px var(--kindei-hi); paint-order: stroke fill;
+        text-shadow: 0 0 16px rgba(240,206,126,.35); }
+      .fuda .ji::before { /* 字の後ろの金のかすれ（流れ） */
+        content: ""; position: absolute; left: 14%; right: 14%; top: 56%; height: 16px; border-radius: 50%;
+        background: radial-gradient(ellipse at 40% 50%, rgba(217,169,76,.28), transparent 70%); transform: rotate(-12deg); }
+      .fuda .obi { position: relative; flex: 0 0 auto; min-height: 92px; box-sizing: border-box; padding: 6px 8px 12px; background: linear-gradient(#100E1C, #0C0B16); border-top: 1px solid rgba(217,169,76,.55); }
+      .fuda .nm { display: block; font-size: 14px; font-weight: 700; letter-spacing: .12em; color: var(--kindei-hi); line-height: 1.3; }
+      .fuda .ef { display: block; font-size: 12px; line-height: 1.45; color: var(--geppaku); margin-top: 2px; }
+      .fuda .dr { display: block; font-size: 12px; line-height: 1.4; color: var(--sub); margin-top: 2px; }
+      .fuda:active { transform: scale(.965); }
       #hud { align-self: flex-start; max-width: 100%; background: rgba(19,19,32,.72); border: 1px solid rgba(217,169,76,.22); border-radius: 9px;
         padding: 4px 8px; font-size: 12px; line-height: 1.5; color: var(--sub); font-family: var(--gothic); }
       #hud b { color: var(--geppaku); font-weight: 500; }
@@ -120,11 +183,15 @@
       </div>
     </div>
     <div id="dayend"><div class="card"><h2>今日は、ここまで。</h2><p id="deWhy"></p><p class="s" id="deSum"></p><button type="button" class="primary" id="deNext">次の朝へ</button></div></div>
-    <div id="veil"><div class="card">
+    <div id="veil"><div class="ld">
+      <div class="moon" aria-hidden="true"></div>
       <h1>ひとよ屋敷</h1>
-      <p>屋敷を組み立てています</p>
-      <div class="bar"><i id="bar"></i></div>
-      <div class="num" id="num">0% ・ 0.0秒</div>
+      <div class="sub">一夜かぎりの間取り</div>
+      <svg class="plan" id="plan" viewBox="0 0 100 100" aria-hidden="true"></svg>
+      <div class="line"><i id="bar"></i></div>
+      <div class="num" id="num">屋敷を取り寄せています</div>
+      <div class="tip" id="tip"></div>
+      <div class="slow" id="slow">回線が細いと、三十秒ほどかかることがあります。<br>二度目からは端末に残るので、すぐに開きます。</div>
     </div></div>
     <script src="Build/Hitoyo.loader.js"></script>
     <script>
@@ -139,6 +206,8 @@
         function send(method, arg) { if (window.unityInstance) window.unityInstance.SendMessage('Hitoyo', method, String(arg)); }
         var canvas = el('unity-canvas');
         var DIRNAME = { N: '北', E: '東', S: '南', W: '西' };
+        // 札の一字（部屋の札 id → 筆の字）
+        var JI = { rouka: '廊', zashiki: '座', hidari: '左', migi: '右', nando: '納', ido: '井', mayoi: '迷', uranai: '占', shoin: '書', saidan: '祭', kura: '蔵', kakushi: '隠' };
         var KIND = { draft: ['扉', 'の扉をひらく（札が出る）'], move: ['進', 'の部屋へ移る'], unlock: ['鍵', 'の錠を鍵で外して入る'], locked: ['錠', 'は錠がかかっている'], lock: ['錠', 'は奥の間の錠'] };
 
         // せり上がりの速さ（?rise= で開ける。押したら URL も書き換える）
@@ -170,7 +239,7 @@
         // 扉の押し所: いまの部屋の画面上の矩形の外へ、扉の口の向きに押し出す（部屋の中身に重ねない・画面の端寄り）。
         // 名札: 押し所・上の帯・見取り図のボタンに重なったら、重ならない所まで押しのける。押しのけきれなければ出さない。
         var lastDoors = null, lastLabels = null;
-        var HALF = 22, GAP = 6;
+        var HALF = 25, GAP = 6;
         var NOFIX = new URLSearchParams(location.search).get('labfix') === '0';   // 検分: 名札を押しのけない（重なりを検査が数えるか）
         function rectOf(n) { var r = n.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; }
         function hit(a, b, m) { m = m || 0; return a.l < b.r + m && b.l < a.r + m && a.t < b.b + m && b.t < a.b + m; }
@@ -193,7 +262,8 @@
               else if (d.dir === 'E') px = rx1 + HALF + GAP; else px = rx0 - HALF - GAP;
               px = Math.min(maxX, Math.max(minX, px)); py = Math.min(maxY, Math.max(minY, py));
               var k = KIND[d.kind] || ['扉', ''];
-              var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind; b.textContent = k[0];
+              var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind;
+              b.innerHTML = '<span class="hoshi"></span><span class="eclipse"></span><span class="ji"></span>'; b.querySelector('.ji').textContent = k[0];
               b.dataset.dir = d.dir; b.setAttribute('aria-label', DIRNAME[d.dir] + k[1] + (d.to ? '（' + d.to + '）' : ''));
               b.style.left = px.toFixed(1) + 'px'; b.style.top = py.toFixed(1) + 'px';
               b.addEventListener('click', function () { send('Door', d.dir); });
@@ -248,9 +318,12 @@
             case 'cards': {
               var row = el('cardRow'); row.textContent = '';
               m.list.forEach(function (c) {
-                var b = document.createElement('button'); b.type = 'button'; b.className = 'fuda'; b.dataset.i = c.i;
-                b.innerHTML = '<span class="nm"></span><span class="ef"></span><span class="dr"></span>';
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'fuda'; b.dataset.i = c.i; b.dataset.id = c.id || '';
+                b.innerHTML = '<i class="k tl"></i><i class="k tr"></i><span class="eclipse"></span><span class="hana"></span>'
+                  + '<span class="ji" aria-hidden="true"></span><span class="obi"><span class="nm"></span><span class="ef"></span><span class="dr"></span></span>';
+                b.querySelector('.ji').textContent = JI[c.id] || c.name.charAt(0);
                 b.querySelector('.nm').textContent = c.name; b.querySelector('.ef').textContent = c.effect; b.querySelector('.dr').textContent = c.doors;
+                b.setAttribute('aria-label', c.name + '。' + c.effect + '。' + c.doors);
                 b.addEventListener('click', function () { send('Pick', c.i); });
                 row.appendChild(b);
               });
@@ -275,7 +348,35 @@
         window.addEventListener('error', function (e) { el('err').textContent = '不具合: ' + String(e.message || e).slice(0, 120); });
 
         K.marks['loader-start'] = Math.round(performance.now());
-        var tick = setInterval(function () { el('num').textContent = el('num').dataset.p + '% ・ ' + sec(performance.now()) + '秒'; }, 100);
+        // ---- 読み込み画面（便2c） ----
+        // 取り寄せの大きさ（ビルドの後に書き込む。書き込まれていなければ % だけ出す）
+        var TOTAL_MB = parseFloat('5.0') || 0;
+        var plan = el('plan'), cells = [], order = [];
+        (function () {
+          var NS = 'http://www.w3.org/2000/svg';
+          for (var y = 0; y < 5; y++) for (var x = 0; x < 5; x++) {
+            var r = document.createElementNS(NS, 'rect'); r.setAttribute('x', 2 + x * 19.4); r.setAttribute('y', 2 + y * 19.4);
+            r.setAttribute('width', 17.4); r.setAttribute('height', 17.4); r.setAttribute('rx', 1.5); r.setAttribute('class', 'cell' + (x === 2 && y === 4 ? ' here' : ''));
+            plan.appendChild(r); cells.push(r);
+          }
+          // 玄関（下の中央）から、つながるように灯っていく順
+          var seen = { 22: 1 }, q = [22];
+          while (q.length) { var i = q.shift(); if (i !== 22) order.push(i); var cx = i % 5, cy = (i / 5) | 0;
+            [[0, -1], [1, 0], [-1, 0], [0, 1]].forEach(function (d) { var nx = cx + d[0], ny = cy + d[1], j = ny * 5 + nx; if (nx >= 0 && ny >= 0 && nx < 5 && ny < 5 && !seen[j]) { seen[j] = 1; q.push(j); } }); }
+        })();
+        var TIPS = ['扉を押すと、札が三枚。\n選んだ部屋が、下からせり上がる。', '栞は、置いた部屋へ跳ねて入る。\n歩が尽きれば、その夜はおしまい。', '朝には間取りが消え、手帳だけが残る。\n見取り図で、屋敷の全体を見渡せる。'];
+        var tipI = 0; function showTip() { var t = el('tip'); t.style.opacity = 0; setTimeout(function () { t.textContent = TIPS[tipI % TIPS.length]; t.style.whiteSpace = 'pre-line'; t.style.opacity = 1; tipI++; }, tipI ? 450 : 0); }
+        showTip(); var tipTimer = setInterval(showTip, 5200);
+        var lastP = 0;
+        function paintLoad() {
+          var p = lastP, t = sec(performance.now());
+          var lit = Math.floor(Math.min(1, p / 0.9) * order.length);
+          for (var i = 0; i < order.length; i++) cells[order[i]].classList.toggle('on', i < lit);
+          if (p < 0.9) el('num').textContent = '屋敷を取り寄せています　' + (TOTAL_MB ? (Math.min(1, p / 0.9) * TOTAL_MB).toFixed(1) + '／' + TOTAL_MB.toFixed(1) + 'MB' : Math.round(p / 0.9 * 100) + '%') + '・' + t + '秒';
+          else el('num').textContent = '屋敷を組み立てています・' + t + '秒';
+          if (performance.now() > 8000 && p < 0.9) el('slow').classList.add('on');
+        }
+        var tick = setInterval(paintLoad, 200);
         el('num').dataset.p = '0';
         createUnityInstance(canvas, {
           dataUrl: "Build/Hitoyo.data.unityweb",
@@ -284,23 +385,27 @@
           // Unity 6000.0.36 の不具合よけ: fallback 有効時はスレッド無しでも workerUrl を取りにいく
           workerUrl: "TemplateData/noop-worker.js",
           streamingAssetsUrl: "StreamingAssets",
+          // 便2c: 二度目からは端末に残した写しを使う（中身が変わったかだけ尋ねる＝304 なら取り寄せない）。既定では data だけで、wasm と framework は毎回取り寄せていた
+          cacheControl: function (url) { return /(^|\/)Build\//.test(url) ? 'must-revalidate' : 'no-store'; },   // url は相対（Build/…）で来る
           companyName: "kitan-circle",
-          productName: "ひとよ屋敷 便2改",
+          productName: "ひとよ屋敷 便2c",
           productVersion: "1.0",
           devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
         }, function (p) {
-          var pct = Math.round(p * 100);
-          el('num').dataset.p = String(pct);
-          el('bar').style.width = pct + '%';
+          lastP = p;
+          el('bar').style.width = Math.round(p * 100) + '%';
           if (p >= 0.9 && !K.marks['downloaded']) K.marks['downloaded'] = Math.round(performance.now());
+          paintLoad();
         }).then(function (inst) {
           window.unityInstance = inst;
           K.marks['instance-ready'] = Math.round(performance.now());
-          clearInterval(tick);
+          clearInterval(tick); clearInterval(tipTimer);
+          lastP = 1; paintLoad();
           el('veil').classList.add('gone');
-          window.kitanStatus('load', '読込: 屋敷が出るまで ' + sec(K.marks['instance-ready']) + '秒');
+          var dl = K.marks['downloaded'] || K.marks['instance-ready'];
+          window.kitanStatus('load', '読込: 屋敷が出るまで ' + sec(K.marks['instance-ready']) + '秒（取り寄せ ' + sec(dl - K.marks['loader-start']) + '・組み立て ' + sec(K.marks['instance-ready'] - dl) + '）');
         }).catch(function (msg) {
-          clearInterval(tick);
+          clearInterval(tick); clearInterval(tipTimer);
           el('num').textContent = '開けませんでした';
           el('err').textContent = '不具合: ' + String(msg).slice(0, 160);
         });
