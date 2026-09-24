@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>ひとよ屋敷（便2c・御札と右下の眺め）</title>
+    <title>ひとよ屋敷（便3a・部屋の見どころと札の間取り図）</title>
     <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2c）。栞のいる部屋に寄って扉を押すと札が三枚出て、選んだ部屋が盤から迫り上がり、栞が跳ねて入る。「見取り図」で屋敷の全体へ引ける。">
     <script>
       window.__kitan = { t0: performance.now(), marks: {} };
@@ -11,7 +11,7 @@
       window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '', view: null,
         lay: { runs: 0, withDoors: 0, overlapAfter: 0, moved: 0, hidden: 0, offscreen: 0, hitUi: 0, doorDoor: 0, minDoor: 999, worst: '',
                doorN: 0, devMax: 0, devBad: 0, doorChibi: 0, doorChibiMoving: 0, settledN: 0, roomWMin: 9, roomWMax: 0, roomCyMin: 9, roomCyMax: 0 },
-        cardsCheck: null };
+        cardsCheck: null, fuda: { checked: 0, dirs: 0, bad: 0, worst: '', kinds: {} } };
     </script>
     <!-- 便2c: わいわいの sdk.js はページの組み立てを止めない（async）。セーブを呼ぶのは読み込みの後なので間に合う -->
     <script src="https://waiwai.town/sdk.js" crossorigin="anonymous" async></script>
@@ -120,6 +120,8 @@
       #cards { display: none; pointer-events: auto; }
       #cards.on { display: block; }
       #cards .ask { font-size: 13px; color: var(--sub); text-align: center; margin: 0 0 6px; }
+      #cards .ask { width: fit-content; max-width: 100%; margin: 0 auto 6px; padding: 3px 10px; border-radius: 9px; background: rgba(19,19,32,.82); }
+      #cards .ask .lg { white-space: nowrap; } #cards .ask .lg b { color: var(--kindei-hi); font-weight: 600; }
       /* 便2d: 札は 3 列の格子（6 本の細い列を 2 本ずつ使う）。行の高さは全部そろう（1fr）。5 枚（占いの間の後）は 3＋2 で下の 2 枚を真ん中に */
       #cards .row { display: grid; grid-template-columns: repeat(6, minmax(0, 62px)); grid-auto-rows: 1fr; gap: 8px; justify-content: center; }
       #cards .row .fuda { grid-column: span 2; }
@@ -145,6 +147,21 @@
       .fuda .ji::before { /* 字の後ろの金のかすれ（流れ） */
         content: ""; position: absolute; left: 14%; right: 14%; top: 56%; height: 16px; border-radius: 50%;
         background: radial-gradient(ellipse at 40% 50%, rgba(217,169,76,.28), transparent 70%); transform: rotate(-12deg); }
+      /* 便3a: 一字の横に、置いたときの間取り図（北が上・金の矢＝進める・×＝壁になる）。枠（84px）は変えない */
+      .fuda .ji { gap: 4px; }
+      .fuda .ji .jc { position: relative; }
+      .fuda .ji svg.zu { position: relative; flex: 0 0 auto; width: 46px; height: 46px; overflow: visible; align-self: flex-end; }   /* 金の小線（上から 33px）の下・枠の下端 4px の上に収める */
+      @media (max-width: 360px) { .fuda .ji { gap: 3px; } .fuda .ji svg.zu { width: 40px; height: 40px; } }
+      .zu .c { fill: #4A3A26; stroke: var(--kindei-hi); stroke-width: 1.4; }
+      .zu .nb { fill: #24233F; stroke: rgba(217,169,76,.45); stroke-width: .8; }
+      .zu .emp { fill: none; stroke: rgba(157,147,181,.45); stroke-width: .8; stroke-dasharray: 2 2; }
+      .zu .edge { stroke: #8C8398; stroke-width: 2; stroke-linecap: round; }
+      .zu .ar { fill: var(--kindei-hi); }
+      .zu .ar.lk { fill: var(--shokko); stroke: var(--kindei-hi); stroke-width: .8; }
+      .zu .in { stroke: var(--geppaku); stroke-width: 2.8; stroke-linecap: round; }
+      .zu .x { stroke: #D8D0E6; stroke-width: 2.4; stroke-linecap: round; }
+      .zu .dot { fill: var(--geppaku); }
+      .zu .okd { fill: var(--shokko); }
       .fuda .obi { position: relative; flex: 1 1 auto; min-height: 92px; box-sizing: border-box; padding: 6px 8px 12px; background: linear-gradient(#100E1C, #0C0B16); border-top: 1px solid rgba(217,169,76,.55); }
       .fuda .nm { display: block; font-size: 14px; font-weight: 700; letter-spacing: .12em; color: var(--kindei-hi); line-height: 1.3; }
       .fuda .ef { display: block; font-size: 12px; line-height: 1.45; color: var(--geppaku); margin-top: 2px; }
@@ -179,12 +196,13 @@
     <button type="button" id="mapBtn" aria-pressed="false">見取り図</button>
     <div id="bottom">
       <div id="toast" role="status" aria-live="polite"></div>
-      <div id="cards"><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）</p><div class="row" id="cardRow"></div></div>
+      <div id="cards"><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）<br><span class="lg">図は北が上　<b>▲</b>進める　<b>×</b>壁になる　<b>●</b>いまの部屋</span></p><div class="row" id="cardRow"></div></div>
       <div id="hud">
         <div id="hud-load"><b>読込</b>: 待っています</div>
         <div id="hud-chibi"><b>ちび</b>: まだ</div>
         <div id="hud-save"><b>記録</b>: まだ</div>
         <div id="hud-fps"><b>描画</b>: 測っています</div>
+        <div id="hud-art"></div>
         <div id="hud-check"></div>
         <div id="err"></div>
       </div>
@@ -327,14 +345,20 @@
             acc.cards++;
             var ji = f.querySelector('.ji'), jr = ji.getBoundingClientRect();
             // 字の墨の範囲（行の箱ではなく、字形そのもの＋縁取り）: 字の行の箱（Range）の上端に canvas の measureText の値を足して、基線と上下の張り出しを出す
-            var rg = document.createRange(); rg.selectNodeContents(ji); var lb = rg.getBoundingClientRect();
+            var jt = ji.querySelector('.jc') || ji;
+            var rg = document.createRange(); rg.selectNodeContents(jt); var lb = rg.getBoundingClientRect();
             var cs = getComputedStyle(ji), cx = (cardsCheck.cv || (cardsCheck.cv = document.createElement('canvas'))).getContext('2d');
-            cx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily; var tm = cx.measureText(ji.textContent), sw = parseFloat(cs.webkitTextStrokeWidth || 0) / 2;
+            cx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily; var tm = cx.measureText(jt.textContent), sw = parseFloat(cs.webkitTextStrokeWidth || 0) / 2;
             var base = lb.top + tm.fontBoundingBoxAscent;
             var gr = { top: base - tm.actualBoundingBoxAscent - sw, bottom: base + tm.actualBoundingBoxDescent + sw, left: lb.left + tm.actualBoundingBoxLeft * -1 - sw, right: lb.left + tm.actualBoundingBoxRight + sw };
             var hana = f.querySelector('.hana').getBoundingClientRect();
             if (gr.top < hana.bottom - 0.5 || gr.bottom > jr.bottom + 0.5 || gr.left < jr.left || gr.right > jr.right) { acc.jiOut++; acc.worst = 'ji ' + f.dataset.id + ' ' + [gr.top, gr.bottom, hana.bottom, jr.bottom].map(Math.round).join(','); }
             if (acc.jiH.indexOf(Math.round(jr.height)) < 0) acc.jiH.push(Math.round(jr.height));
+            // 便3a: 間取り図が一字の枠の中にあり、字と重ならない（金の線の下・札の内側の枠 5px の内）
+            var zu = ji.querySelector('svg.zu');
+            if (zu) { var zr = zu.getBoundingClientRect(), fr = f.getBoundingClientRect(); acc.zu = (acc.zu || 0) + 1;
+              if (zr.top < hana.bottom - 0.5 || zr.bottom > jr.bottom + 0.5 || zr.left < fr.left + 5 || zr.right > fr.right - 5 || (zr.left < gr.right && gr.left < zr.right && zr.top < gr.bottom && gr.top < zr.bottom)) { acc.zuOut = (acc.zuOut || 0) + 1; acc.worst = 'zu ' + f.dataset.id + ' ' + [zr.left - fr.left, fr.right - zr.right, gr.right - zr.left].map(Math.round).join(','); }
+              acc.zuW = Math.min(acc.zuW || 99, Math.round(zr.width)); }
             var obi = f.querySelector('.obi'), or = obi.getBoundingClientRect();
             if (obi.scrollHeight > obi.clientHeight + 1) { acc.obiOut++; acc.worst = 'obi-h ' + f.dataset.id; }
             ['.nm', '.ef', '.dr'].forEach(function (q) {
@@ -347,6 +371,83 @@
         }
         window.__hitoyoCardsCheck = function () { return cardsCheck(null); };
 
+        // ---- 便3a: 札の間取り図 ----
+        // Unity が札ごとに fate（置いたときの各辺 N,E,S,W: none|in|open|pass|wallE|wallN|lock）と nb（隣の区画: edge|empty|room|here|oku）を送る。
+        // 図は北が上（カメラは南南東から見下ろすので、画面の上がほぼ北）。中央＝この札の部屋・四方＝隣の区画。
+        //   ▲金＝扉が開く（空き＝次に札を置ける／隣とつながる）・▲紅＝奥の間の錠・白い棒＝入ってきた口・×＝扉はあるが壁になる（盤の端・隣に対の扉が無い）
+        // 検査: 選んだ札の図（印の置き場＝向きは図の幾何から読む）と、置いた後の実際（state の部屋の扉と隣）を突き合わせる。?fudabreak=1 は図を 90° ずらして描く（検査が落ちるか）
+        var ORD = ['N', 'E', 'S', 'W'], DV = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] }, OPP = { N: 'S', E: 'W', S: 'N', W: 'E' };
+        var FUDABREAK = new URLSearchParams(location.search).get('fudabreak') === '1';
+        var DNAME = { N: '北', E: '東', S: '南', W: '西' };
+        function fudaSay(c) {
+          var f = (c.fate || '').split(','); if (f.length !== 4) return '';
+          var w = { in: '入口', open: '開く', pass: 'つながる', wallE: '盤の端で壁', wallN: '隣のせいで壁', lock: '奥の間の錠' }, out = [];
+          ORD.forEach(function (d, i) { if (w[f[i]]) out.push(DNAME[d] + 'は' + w[f[i]]); });
+          return out.length ? '。置くと、' + out.join('・') : '';
+        }
+        function fudaMap(c) {
+          var f = (c.fate || '').split(','), nb = (c.nb || '').split(','); if (f.length !== 4 || nb.length !== 4) return null;
+          var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+          svg.setAttribute('viewBox', '0 0 44 44'); svg.setAttribute('class', 'zu'); svg.setAttribute('aria-hidden', 'true');
+          function add(tag, at, cls) { var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); if (cls) e.setAttribute('class', cls); svg.appendChild(e); return e; }
+          ORD.forEach(function (d0, i) {
+            var d = FUDABREAK ? ORD[(i + 1) % 4] : d0, v = DV[d], x = 15 + 15 * v[0], y = 15 + 15 * v[1];
+            if (nb[i] === 'edge') {   // 盤の端: 中央の区画の辺の外に線
+              var ex = 22 + v[0] * 8.5, ey = 22 + v[1] * 8.5;
+              add('line', { x1: ex - 7 * Math.abs(v[1]), y1: ey - 7 * Math.abs(v[0]), x2: ex + 7 * Math.abs(v[1]), y2: ey + 7 * Math.abs(v[0]) }, 'edge');
+            } else add('rect', { x: x + 1, y: y + 1, width: 12, height: 12, rx: 1.5 }, nb[i] === 'empty' ? 'emp' : 'nb');
+            if (nb[i] === 'here') add('circle', { cx: x + 7, cy: y + 7, r: 3 }, 'dot');
+            if (nb[i] === 'oku') add('circle', { cx: x + 7, cy: y + 7, r: 2.6 }, 'okd');
+          });
+          add('rect', { x: 15.5, y: 15.5, width: 13, height: 13, rx: 1.5 }, 'c');
+          ORD.forEach(function (d0, i) {
+            var d = FUDABREAK ? ORD[(i + 1) % 4] : d0, v = DV[d], k = f[i], e;
+            var px = -v[1], py = v[0];                  // 辺に沿う向き
+            var bx = 22 + v[0] * 7, by = 22 + v[1] * 7; // 辺の中点
+            if (k === 'open' || k === 'pass' || k === 'lock') {
+              var tx = 22 + v[0] * 15, ty = 22 + v[1] * 15, w = 5;
+              e = add('polygon', { points: [bx + px * w, by + py * w, tx, ty, bx - px * w, by - py * w].join(' ') }, 'ar' + (k === 'lock' ? ' lk' : ''));
+            } else if (k === 'in') {
+              e = add('line', { x1: bx, y1: by, x2: 22 + v[0] * 13, y2: 22 + v[1] * 13 }, 'in');
+            } else if (k === 'wallE' || k === 'wallN') {
+              var cx0 = 22 + v[0] * 10.5, cy0 = 22 + v[1] * 10.5, r = 3.2;
+              e = document.createElementNS(NS, 'g'); e.setAttribute('class', 'x'); svg.appendChild(e);
+              [[-1, -1, 1, 1], [-1, 1, 1, -1]].forEach(function (q) { var l = document.createElementNS(NS, 'line'); l.setAttribute('x1', cx0 + q[0] * r); l.setAttribute('y1', cy0 + q[1] * r); l.setAttribute('x2', cx0 + q[2] * r); l.setAttribute('y2', cy0 + q[3] * r); e.appendChild(l); });
+            }
+            if (e) e.setAttribute('data-k', k === 'in' ? 'pass' : k === 'wallE' || k === 'wallN' ? 'wall' : k);
+          });
+          return svg;
+        }
+        // 図から「どの向きに何を描いたか」を幾何で読む（data-dir は持たせない＝描き違えを拾う）
+        function zuRead(card) {
+          var svg = card.querySelector('svg.zu'), out = { N: 'none', E: 'none', S: 'none', W: 'none' }; if (!svg) return null;
+          var R = svg.getBoundingClientRect(), cx = R.left + R.width / 2, cy = R.top + R.height / 2;
+          Array.prototype.forEach.call(svg.querySelectorAll('[data-k]'), function (e) {
+            var r = e.getBoundingClientRect(), dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+            var d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'E' : 'W') : (dy > 0 ? 'S' : 'N');
+            out[d] = e.getAttribute('data-k');
+          });
+          return out;
+        }
+        function fudaVerify(st) {
+          var P = HY.fudaPending; if (!P || !P.drawn || !st.rooms) return;
+          var room = null; st.rooms.forEach(function (r) { if (r.x === P.tx && r.y === P.ty) room = r; }); if (!room) return;
+          HY.fudaPending = null; var F = HY.fuda; F.checked++;
+          ORD.forEach(function (e) {
+            var want;
+            if (room.doors.indexOf(e) < 0) want = 'none';
+            else if (e === OPP[P.dir]) want = 'pass';
+            else {
+              var nx = P.tx + DV[e][0], ny = P.ty + DV[e][1], nr = null;
+              if (nx < 0 || ny < 0 || nx > 4 || ny > 4) want = 'wall';
+              else { st.rooms.forEach(function (r) { if (r.x === nx && r.y === ny) nr = r; });
+                want = !nr ? 'open' : nr.id === 'oku' ? 'lock' : nr.doors.indexOf(OPP[e]) < 0 ? 'wall' : 'pass'; }
+            }
+            F.dirs++; F.kinds[want] = (F.kinds[want] || 0) + 1;
+            if (P.drawn[e] !== want) { F.bad++; F.worst = P.id + ' (' + P.tx + ',' + P.ty + ') ' + e + ' 図 ' + P.drawn[e] + '／実際 ' + want; }
+          });
+        }
+
         window.hitoyoUi = function (s) {
           var m; try { m = JSON.parse(s); } catch (e) { return; }
           switch (m.t) {
@@ -356,7 +457,8 @@
             case 'rise': paintRise(m.sec); HY.rise = m.sec; break;
             case 'toast': toast(m.text); HY.toasts.push(m.text); break;
             case 'checkDone': HY.checkDone = m.text; break;
-            case 'state': HY.state = m; break;
+            case 'state': HY.state = m; fudaVerify(m); (m.rooms || []).forEach(function (r) { HY.seen = HY.seen || {}; HY.seen[r.id] = 1; }); break;
+            case 'picked': HY.fudaPending = HY.cardsMeta ? { tx: HY.cardsMeta.tx, ty: HY.cardsMeta.ty, dir: HY.cardsMeta.dir, drawn: HY.cardsMeta.drawn[m.i], id: (HY.cards[m.i] || {}).id } : null; break;
             case 'labels': lastLabels = m.list; HY.labels = m.list; layout(); break;
             case 'doors': lastDoors = m; HY.doors = m.list; HY.doorsMsg = m; layout(); break;
             case 'view': paintView(m); HY.view = m; layout(); break;
@@ -365,15 +467,17 @@
               m.list.forEach(function (c) {
                 var b = document.createElement('button'); b.type = 'button'; b.className = 'fuda'; b.dataset.i = c.i; b.dataset.id = c.id || '';
                 b.innerHTML = '<i class="k tl"></i><i class="k tr"></i><span class="eclipse"></span><span class="hana"></span>'
-                  + '<span class="ji" aria-hidden="true"></span><span class="obi"><span class="nm"></span><span class="ef"></span><span class="dr"></span></span>';
-                b.querySelector('.ji').textContent = JI[c.id] || c.name.charAt(0);
+                  + '<span class="ji" aria-hidden="true"><span class="jc"></span></span><span class="obi"><span class="nm"></span><span class="ef"></span><span class="dr"></span></span>';
+                b.querySelector('.jc').textContent = JI[c.id] || c.name.charAt(0);
+                var zu = fudaMap(c); if (zu) b.querySelector('.ji').appendChild(zu);
                 b.querySelector('.nm').textContent = c.name; b.querySelector('.ef').textContent = c.effect; b.querySelector('.dr').textContent = c.doors;
-                b.setAttribute('aria-label', c.name + '。' + c.effect + '。' + c.doors);
+                b.setAttribute('aria-label', c.name + '。' + c.effect + '。' + c.doors + fudaSay(c));
                 b.addEventListener('click', function () { send('Pick', c.i); });
                 row.appendChild(b);
               });
               el('cards').classList.toggle('on', m.list.length > 0);
               HY.cards = m.list;
+              if (m.list.length) HY.cardsMeta = { tx: m.tx, ty: m.ty, dir: m.dir, drawn: Array.prototype.map.call(row.children, zuRead) };
               if (m.list.length) requestAnimationFrame(function () { HY.cardsCheck = cardsCheck(HY.cardsCheck); });
               break;
             }
@@ -397,7 +501,7 @@
         K.marks['loader-start'] = Math.round(performance.now());
         // ---- 読み込み画面（便2c） ----
         // 取り寄せの大きさ（ビルドの後に書き込む。書き込まれていなければ % だけ出す）
-        var TOTAL_MB = parseFloat('5.0') || 0;
+        var TOTAL_MB = parseFloat('5.6') || 0;
         var plan = el('plan'), cells = [], order = [];
         (function () {
           var NS = 'http://www.w3.org/2000/svg';
@@ -435,7 +539,7 @@
           // 便2c: 二度目からは端末に残した写しを使う（中身が変わったかだけ尋ねる＝304 なら取り寄せない）。既定では data だけで、wasm と framework は毎回取り寄せていた
           cacheControl: function (url) { return /(^|\/)Build\//.test(url) ? 'must-revalidate' : 'no-store'; },   // url は相対（Build/…）で来る
           companyName: "kitan-circle",
-          productName: "ひとよ屋敷 便2d",
+          productName: "ひとよ屋敷 便3a",
           productVersion: "1.0",
           devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
         }, function (p) {

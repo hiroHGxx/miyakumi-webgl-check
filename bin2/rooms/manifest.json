@@ -1,0 +1,59 @@
+{
+ "list": [
+  {
+   "slot": "genkan",
+   "file": "genkan.jpg",
+   "v": "d099e0fdf8"
+  },
+  {
+   "slot": "rouka",
+   "file": "rouka.png",
+   "v": "2d596492be"
+  },
+  {
+   "slot": "ore",
+   "file": "ore.jpg",
+   "v": "a5905989a5"
+  },
+  {
+   "slot": "nando",
+   "file": "nando.jpg",
+   "v": "82022111e6"
+  },
+  {
+   "slot": "ido",
+   "file": "ido.jpg",
+   "v": "b222efe58b"
+  },
+  {
+   "slot": "mayoi",
+   "file": "mayoi.jpg",
+   "v": "6d13aa6391"
+  },
+  {
+   "slot": "uranai",
+   "file": "uranai.png",
+   "v": "25db790318"
+  },
+  {
+   "slot": "saidan",
+   "file": "saidan.jpg",
+   "v": "538e29e69a"
+  },
+  {
+   "slot": "kura",
+   "file": "kura.jpg",
+   "v": "578f82d1c5"
+  },
+  {
+   "slot": "kakushi",
+   "file": "kakushi.jpg",
+   "v": "f6260d3dc3"
+  },
+  {
+   "slot": "oku",
+   "file": "oku.jpg",
+   "v": "b2810132fd"
+  }
+ ]
+}
