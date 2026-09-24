@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>ひとよ屋敷（便3a・部屋の見どころと札の間取り図）</title>
+    <title>ひとよ屋敷（便3b・名札・共通模様の試し・部屋の灯）</title>
     <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2c）。栞のいる部屋に寄って扉を押すと札が三枚出て、選んだ部屋が盤から迫り上がり、栞が跳ねて入る。「見取り図」で屋敷の全体へ引ける。">
     <script>
       window.__kitan = { t0: performance.now(), marks: {} };
@@ -11,7 +11,8 @@
       window.__hitoyo = { state: null, doors: [], labels: [], cards: [], toasts: [], checkDone: '', view: null,
         lay: { runs: 0, withDoors: 0, overlapAfter: 0, moved: 0, hidden: 0, offscreen: 0, hitUi: 0, doorDoor: 0, minDoor: 999, worst: '',
                doorN: 0, devMax: 0, devBad: 0, doorChibi: 0, doorChibiMoving: 0, settledN: 0, roomWMin: 9, roomWMax: 0, roomCyMin: 9, roomCyMax: 0 },
-        cardsCheck: null, fuda: { checked: 0, dirs: 0, bad: 0, worst: '', kinds: {} } };
+        cardsCheck: null, fuda: { checked: 0, dirs: 0, bad: 0, worst: '', kinds: {} },
+        here: { n: 0, ok: 0, bad: 0, worst: '', kinds: {} }, maplab: { runs: 0, want: 0, shown: 0, hidden: 0, offscreen: 0, overlap: 0, worst: '' }, labLab: 0, tile: null };
     </script>
     <!-- 便2c: わいわいの sdk.js はページの組み立てを止めない（async）。セーブを呼ぶのは読み込みの後なので間に合う -->
     <script src="https://waiwai.town/sdk.js" crossorigin="anonymous" async></script>
@@ -84,6 +85,22 @@
         color: var(--kindei-hi); background: rgba(19,19,32,.82); border: 1px solid var(--kindei); }
       #mapBtn[aria-pressed="true"] { color: var(--kindei-ink); background: var(--kindei-hi); }
       #mapBtn:active { transform: scale(.96); }
+      /* 便3b: 共通模様（土壁・床板・襖の地）の試し。あり／なしを見比べる（オーナーが iPhone で切り替えて決める） */
+      #tileBtn { position: fixed; z-index: 6; top: calc(max(8px, env(safe-area-inset-top)) + 52px); left: max(8px, env(safe-area-inset-left));
+        min-width: 44px; height: 40px; padding: 0 12px; border-radius: 999px; font-size: 14px; letter-spacing: .06em; white-space: nowrap;
+        color: var(--sub); background: rgba(19,19,32,.82); border: 1px solid #565064; }
+      #tileBtn[aria-pressed="true"] { color: var(--kindei-hi); border-color: var(--kindei); }
+      #tileBtn b { font-weight: 700; }
+      #tileBtn:active { transform: scale(.96); }
+      /* 便3b: 下の説明の帯＝今いる部屋の名と効き目の一行（寄りでは周りの名札を出さない。目印の玄関・奥の間だけ） */
+      #here { align-self: center; max-width: min(460px, 100%); display: none; padding: 5px 14px 6px; border-radius: 9px; text-align: center; line-height: 1.45;
+        background: rgba(19,19,32,.86); border: 1px solid rgba(217,169,76,.45); box-shadow: 0 3px 10px rgba(0,0,0,.45); }
+      #here.on { display: block; }
+      #here .nm { font-size: 16px; font-weight: 700; letter-spacing: .14em; color: var(--kindei-hi); }
+      #here .ef { font-size: 12px; color: var(--geppaku); margin-left: 10px; letter-spacing: .04em; }
+      #cards.on ~ #here { display: none; }
+      body.map #here { display: none; }   /* 見取り図は全部の部屋の名札が出るので、帯は下げる（横持ちで盤の手前を隠した） */
+      @media (orientation: landscape) and (max-height: 520px) { #here { align-self: flex-end; } }   /* 横持ちは右下へ（中央だと部屋の手前に掛かる） */
 
       /* 盤の上に重ねる層（部屋の名札・扉の押し所） */
       #over { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
@@ -148,18 +165,19 @@
         content: ""; position: absolute; left: 14%; right: 14%; top: 56%; height: 16px; border-radius: 50%;
         background: radial-gradient(ellipse at 40% 50%, rgba(217,169,76,.28), transparent 70%); transform: rotate(-12deg); }
       /* 便3a: 一字の横に、置いたときの間取り図（北が上・金の矢＝進める・×＝壁になる）。枠（84px）は変えない */
-      .fuda .ji { gap: 4px; }
+      .fuda .ji { gap: 4px; padding-bottom: 1px; }   /* 便3b: 図を 46→50px に（下の余白 4→1px で金の小線の下に収める） */
       .fuda .ji .jc { position: relative; }
-      .fuda .ji svg.zu { position: relative; flex: 0 0 auto; width: 46px; height: 46px; overflow: visible; align-self: flex-end; }   /* 金の小線（上から 33px）の下・枠の下端 4px の上に収める */
-      @media (max-width: 360px) { .fuda .ji { gap: 3px; } .fuda .ji svg.zu { width: 40px; height: 40px; } }
-      .zu .c { fill: #4A3A26; stroke: var(--kindei-hi); stroke-width: 1.4; }
-      .zu .nb { fill: #24233F; stroke: rgba(217,169,76,.45); stroke-width: .8; }
-      .zu .emp { fill: none; stroke: rgba(157,147,181,.45); stroke-width: .8; stroke-dasharray: 2 2; }
-      .zu .edge { stroke: #8C8398; stroke-width: 2; stroke-linecap: round; }
-      .zu .ar { fill: var(--kindei-hi); }
-      .zu .ar.lk { fill: var(--shokko); stroke: var(--kindei-hi); stroke-width: .8; }
-      .zu .in { stroke: var(--geppaku); stroke-width: 2.8; stroke-linecap: round; }
-      .zu .x { stroke: #D8D0E6; stroke-width: 2.4; stroke-linecap: round; }
+      .fuda .ji svg.zu { position: relative; flex: 0 0 auto; width: 50px; height: 50px; overflow: visible; align-self: flex-end; }   /* 金の小線（上から 33px）の下・枠の下端 1px の上に収める */
+      @media (max-width: 360px) { .fuda .ji { gap: 3px; } .fuda .ji svg.zu { width: 42px; height: 42px; } }
+      /* 便3b: 印をはっきり（▲は大きく暗い縁取り・×と白い棒は太く・区画の線も太く） */
+      .zu .c { fill: #4A3A26; stroke: var(--kindei-hi); stroke-width: 1.8; }
+      .zu .nb { fill: #24233F; stroke: rgba(217,169,76,.55); stroke-width: 1.1; }
+      .zu .emp { fill: none; stroke: rgba(157,147,181,.6); stroke-width: 1.1; stroke-dasharray: 2 2; }
+      .zu .edge { stroke: #9D93B5; stroke-width: 2.6; stroke-linecap: round; }
+      .zu .ar { fill: var(--kindei-hi); stroke: #141327; stroke-width: .9; stroke-linejoin: round; }
+      .zu .ar.lk { fill: var(--shokko); stroke: var(--kindei-hi); stroke-width: 1; }
+      .zu .in { stroke: var(--geppaku); stroke-width: 3.6; stroke-linecap: round; }
+      .zu .x { stroke: #E8E4D8; stroke-width: 3.4; stroke-linecap: round; }
       .zu .dot { fill: var(--geppaku); }
       .zu .okd { fill: var(--shokko); }
       .fuda .obi { position: relative; flex: 1 1 auto; min-height: 92px; box-sizing: border-box; padding: 6px 8px 12px; background: linear-gradient(#100E1C, #0C0B16); border-top: 1px solid rgba(217,169,76,.55); }
@@ -194,15 +212,18 @@
       </div>
     </div>
     <button type="button" id="mapBtn" aria-pressed="false">見取り図</button>
+    <button type="button" id="tileBtn" aria-pressed="false" aria-label="共通模様（土壁・床板・襖の地）の試し">模様 <b>なし</b></button>
     <div id="bottom">
       <div id="toast" role="status" aria-live="polite"></div>
-      <div id="cards"><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）<br><span class="lg">図は北が上　<b>▲</b>進める　<b>×</b>壁になる　<b>●</b>いまの部屋</span></p><div class="row" id="cardRow"></div></div>
+      <div id="cards" class=""><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）<br><span class="lg">図は北が上　<b>▲</b>進める　<b>×</b>壁になる　<b>●</b>いまの部屋</span></p><div class="row" id="cardRow"></div></div>
+      <div id="here" aria-live="polite"><span class="nm"></span><span class="ef"></span></div>
       <div id="hud">
         <div id="hud-load"><b>読込</b>: 待っています</div>
         <div id="hud-chibi"><b>ちび</b>: まだ</div>
         <div id="hud-save"><b>記録</b>: まだ</div>
         <div id="hud-fps"><b>描画</b>: 測っています</div>
         <div id="hud-art"></div>
+        <div id="hud-tile"></div>
         <div id="hud-check"></div>
         <div id="err"></div>
       </div>
@@ -245,8 +266,17 @@
         });
         el('deNext').addEventListener('click', function () { send('NextDay', ''); });
         el('mapBtn').addEventListener('click', function () { send('ToggleMap', ''); });
+        // 便3b: 共通模様の試し（?tile=1 で最初から「あり」。押したら URL も書き換える＝そのまま人に渡せる）
+        var tileWant = new URLSearchParams(location.search).get('tile') === '1';
+        function paintTile(on) { var b = el('tileBtn'); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.innerHTML = '模様 <b>' + (on ? 'あり' : 'なし') + '</b>'; }
+        paintTile(tileWant);
+        el('tileBtn').addEventListener('click', function () {
+          tileWant = !tileWant; paintTile(tileWant);
+          if (window.unityInstance) window.unityInstance.SendMessage('HitoyoRoomArt', 'SetTile', tileWant ? '1' : '0');
+          try { var u = new URL(location.href); if (tileWant) u.searchParams.set('tile', '1'); else u.searchParams.delete('tile'); history.replaceState(null, '', u.toString()); } catch (e) {}
+        });
         function paintView(v) {
-          var b = el('mapBtn'); b.setAttribute('aria-pressed', v.map ? 'true' : 'false');
+          var b = el('mapBtn'); b.setAttribute('aria-pressed', v.map ? 'true' : 'false'); document.body.classList.toggle('map', !!v.map);
           b.textContent = v.map ? '部屋へ戻る' : '見取り図';
           b.style.display = v.pinned ? 'none' : '';
         }
@@ -273,7 +303,7 @@
         function layout() {
           var R = canvas.getBoundingClientRect(), L = HY.lay; L.runs++;
           var topR = rectOf(el('top')), mapR = el('mapBtn').style.display === 'none' ? null : rectOf(el('mapBtn'));
-          var ui = [topR]; if (mapR) ui.push(mapR);
+          var ui = [topR]; if (mapR) ui.push(mapR); ui.push(rectOf(el('tileBtn')));
           var box = el('doors'); box.textContent = ''; var drs = [];
           var m = lastDoors;
           if (m && m.list.length) {
@@ -310,6 +340,7 @@
           });
           var lbox = el('labs'); lbox.textContent = '';
           var low = [rectOf(el('hud'))]; if (el('cards').classList.contains('on')) low.push(rectOf(el('cards')));   // 名札は下の札・計測の札の裏に隠さない
+          if (el('here').classList.contains('on') && !el('cards').classList.contains('on')) low.push(rectOf(el('here')));
           var obst = dRects.concat(ui, low), placed = [];
           (lastLabels || []).forEach(function (l) {
             var x = R.left + l.x * R.width, y = R.top + l.y * R.height;
@@ -330,6 +361,26 @@
             placed.push(q);
           });
           Array.prototype.forEach.call(lbox.children, function (n) { var r = rectOf(n); dRects.forEach(function (d) { if (hit(r, d)) { L.overlapAfter++; L.worst = 'label-door ' + n.textContent; } }); });
+          // 便3b: 名札どうし・帯やボタンとの重なり（どの見せ方でも）と、見取り図で全部の部屋の名が出たか（札が出ていないとき）
+          var labs = Array.prototype.map.call(lbox.children, rectOf);
+          labs.forEach(function (a, i) { for (var j = i + 1; j < labs.length; j++) if (hit(a, labs[j])) HY.labLab++; ui.concat(low).forEach(function (u) { if (hit(a, u)) HY.labLab++; }); });
+          if (lastLabelsMap && !el('cards').classList.contains('on') && lastLabels) {
+            var M = HY.maplab; M.runs++; M.want += lastLabels.length; M.shown += labs.length;
+            if (labs.length < lastLabels.length) { M.hidden += lastLabels.length - labs.length; M.worst = 'hidden ' + (lastLabels.length - labs.length) + '/' + lastLabels.length; }
+            labs.forEach(function (a) { if (a.l < R.left || a.r > R.right || a.t < R.top || a.b > R.bottom) M.offscreen++; });
+            labs.forEach(function (a, i) { for (var j = i + 1; j < labs.length; j++) if (hit(a, labs[j])) M.overlap++; });
+          }
+        }
+        var lastLabelsMap = false;
+        // 便3b: 寄りのとき今いる部屋の名が下の帯に出ているか（落ち着いた時点＝state が来るたびに数える）。?herebreak=1 で帯に違う名を出す（検査が落ちるか）
+        var HEREBREAK = new URLSearchParams(location.search).get('herebreak') === '1';
+        function hereVerify(st) {
+          if (st.map || st.cards || st.dayOver || !st.rooms) return;
+          var room = null; st.rooms.forEach(function (r) { if (r.x === st.px && r.y === st.py) room = r; }); if (!room) return;
+          var H = HY.here, h = el('here'), R = canvas.getBoundingClientRect(), r = h.getBoundingClientRect(); H.n++; H.kinds[room.id] = 1;
+          var ok = h.classList.contains('on') && getComputedStyle(h).display !== 'none' && h.querySelector('.nm').textContent === room.name
+            && r.width > 0 && r.left >= R.left - .5 && r.right <= R.right + .5 && r.top >= R.top - .5 && r.bottom <= R.bottom + .5;
+          if (ok) H.ok++; else { H.bad++; H.worst = room.id + ' 帯「' + h.querySelector('.nm').textContent + '」'; }
         }
         function sendDoorRadius() { var R = canvas.getBoundingClientRect(); if (R.height > 0) send('SetDoorRadius', (HALF / R.height).toFixed(5)); }   // 便2d: 丸の半径を Unity へ（北の丸が栞に重ならない高さを Unity が選ぶ）
         window.addEventListener('resize', function () { sendDoorRadius(); requestAnimationFrame(layout); });
@@ -405,12 +456,12 @@
             var px = -v[1], py = v[0];                  // 辺に沿う向き
             var bx = 22 + v[0] * 7, by = 22 + v[1] * 7; // 辺の中点
             if (k === 'open' || k === 'pass' || k === 'lock') {
-              var tx = 22 + v[0] * 15, ty = 22 + v[1] * 15, w = 5;
+              var tx = 22 + v[0] * 16.5, ty = 22 + v[1] * 16.5, w = 6.5;   // 便3b: 5→6.5・先を 15→16.5
               e = add('polygon', { points: [bx + px * w, by + py * w, tx, ty, bx - px * w, by - py * w].join(' ') }, 'ar' + (k === 'lock' ? ' lk' : ''));
             } else if (k === 'in') {
               e = add('line', { x1: bx, y1: by, x2: 22 + v[0] * 13, y2: 22 + v[1] * 13 }, 'in');
             } else if (k === 'wallE' || k === 'wallN') {
-              var cx0 = 22 + v[0] * 10.5, cy0 = 22 + v[1] * 10.5, r = 3.2;
+              var cx0 = 22 + v[0] * 10.5, cy0 = 22 + v[1] * 10.5, r = 3.8;   // 便3b: 3.2→3.8
               e = document.createElementNS(NS, 'g'); e.setAttribute('class', 'x'); svg.appendChild(e);
               [[-1, -1, 1, 1], [-1, 1, 1, -1]].forEach(function (q) { var l = document.createElementNS(NS, 'line'); l.setAttribute('x1', cx0 + q[0] * r); l.setAttribute('y1', cy0 + q[1] * r); l.setAttribute('x2', cx0 + q[2] * r); l.setAttribute('y2', cy0 + q[3] * r); e.appendChild(l); });
             }
@@ -457,9 +508,14 @@
             case 'rise': paintRise(m.sec); HY.rise = m.sec; break;
             case 'toast': toast(m.text); HY.toasts.push(m.text); break;
             case 'checkDone': HY.checkDone = m.text; break;
-            case 'state': HY.state = m; fudaVerify(m); (m.rooms || []).forEach(function (r) { HY.seen = HY.seen || {}; HY.seen[r.id] = 1; }); break;
+            case 'state': HY.state = m; fudaVerify(m); hereVerify(m); (m.rooms || []).forEach(function (r) { HY.seen = HY.seen || {}; HY.seen[r.id] = 1; }); break;
             case 'picked': HY.fudaPending = HY.cardsMeta ? { tx: HY.cardsMeta.tx, ty: HY.cardsMeta.ty, dir: HY.cardsMeta.dir, drawn: HY.cardsMeta.drawn[m.i], id: (HY.cards[m.i] || {}).id } : null; break;
-            case 'labels': lastLabels = m.list; HY.labels = m.list; layout(); break;
+            case 'labels': lastLabels = m.list; lastLabelsMap = !!m.map; HY.labels = m.list; layout(); break;
+            case 'here': {
+              var h = el('here'); h.dataset.id = m.id; h.querySelector('.nm').textContent = HEREBREAK ? '（違う名）' : m.name; h.querySelector('.ef').textContent = m.text || '';
+              h.classList.add('on'); HY.hereMsg = m; requestAnimationFrame(layout); break;
+            }
+            case 'tile': HY.tile = m.on; paintTile(!!m.on); tileWant = !!m.on; break;
             case 'doors': lastDoors = m; HY.doors = m.list; HY.doorsMsg = m; layout(); break;
             case 'view': paintView(m); HY.view = m; layout(); break;
             case 'cards': {
@@ -501,7 +557,7 @@
         K.marks['loader-start'] = Math.round(performance.now());
         // ---- 読み込み画面（便2c） ----
         // 取り寄せの大きさ（ビルドの後に書き込む。書き込まれていなければ % だけ出す）
-        var TOTAL_MB = parseFloat('5.6') || 0;
+        var TOTAL_MB = parseFloat('5.7') || 0;
         var plan = el('plan'), cells = [], order = [];
         (function () {
           var NS = 'http://www.w3.org/2000/svg';
@@ -539,7 +595,7 @@
           // 便2c: 二度目からは端末に残した写しを使う（中身が変わったかだけ尋ねる＝304 なら取り寄せない）。既定では data だけで、wasm と framework は毎回取り寄せていた
           cacheControl: function (url) { return /(^|\/)Build\//.test(url) ? 'must-revalidate' : 'no-store'; },   // url は相対（Build/…）で来る
           companyName: "kitan-circle",
-          productName: "ひとよ屋敷 便3a",
+          productName: "ひとよ屋敷 便3b",
           productVersion: "1.0",
           devicePixelRatio: (function () { var d = window.devicePixelRatio || 1, q = parseFloat(new URLSearchParams(location.search).get('dpr')); return q > 0 ? Math.min(q, d) : Math.min(d, 2); })(),
         }, function (p) {

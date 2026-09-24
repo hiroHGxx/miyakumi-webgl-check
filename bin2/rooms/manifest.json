@@ -54,6 +54,21 @@
    "slot": "oku",
    "file": "oku.jpg",
    "v": "b2810132fd"
+  },
+  {
+   "slot": "tile_kabe",
+   "file": "tile_kabe.jpg",
+   "v": "f680119039"
+  },
+  {
+   "slot": "tile_ita",
+   "file": "tile_ita.jpg",
+   "v": "8c27aa5fe8"
+  },
+  {
+   "slot": "tile_fusuma",
+   "file": "tile_fusuma.jpg",
+   "v": "d2230cb5f5"
   }
  ]
 }
