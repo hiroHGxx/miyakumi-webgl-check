@@ -142,8 +142,9 @@
       #cards .ask { font-size: 13px; color: var(--sub); text-align: center; margin: 0 0 6px; }
       #cards .ask { box-sizing: border-box; width: fit-content; max-width: 100%; margin: 0 auto 6px; padding: 3px 10px; border-radius: 9px; background: rgba(19,19,32,.82); }
       #cards .ask .lg { white-space: nowrap; } #cards .ask .lg b { color: var(--kindei-hi); font-weight: 600; }
+      /* 金の外枠がスクロール領域で切れないよう、行に余白を持たせる。 */
       /* 便2d: 札は 3 列の格子（6 本の細い列を 2 本ずつ使う）。行の高さは全部そろう（1fr）。5 枚（占いの間の後）は 3＋2 で下の 2 枚を真ん中に */
-      #cards .row { display: grid; grid-template-columns: repeat(6, minmax(0, 62px)); grid-auto-rows: 1fr; gap: 8px; justify-content: center; }
+      #cards .row { display: grid; grid-template-columns: repeat(6, minmax(0, 62px)); grid-auto-rows: 1fr; gap: 8px; justify-content: center; padding: 2px 2px 14px; }
       #cards .row .fuda { grid-column: span 2; }
       #cards .row .fuda:nth-child(4):nth-last-child(2) { grid-column: 2 / span 2; }
       #cards .row .fuda:nth-child(5):nth-last-child(1) { grid-column: 4 / span 2; }
@@ -154,6 +155,7 @@
         #cards .row.five .fuda:nth-child(n) { grid-column: auto; }
       }
       @media (max-width: 360px) {
+        #cards .row { column-gap: 6px; }
         #cards .ask { padding-inline: 2px; }
         #cards .ask .lg { white-space: normal; }
       }
@@ -225,7 +227,7 @@
       </div>
     </div>
     <button type="button" id="mapBtn" aria-pressed="false">見取り図</button>
-    <button type="button" id="tileBtn" aria-pressed="false" aria-label="共通模様（土壁・床板・襖の地）の試し">模様 <b>なし</b></button>
+    <button type="button" id="tileBtn" aria-pressed="true" aria-label="共通模様（土壁・床板・襖の地）の切り替え">模様 <b>あり</b></button>
     <button type="button" id="bookBtn" disabled>手帳 0 / 3</button>
     <div id="bottom">
       <div id="toast" role="status" aria-live="polite"></div>
@@ -283,13 +285,13 @@
         el('deNext').addEventListener('click', function () { send('NextDay', ''); });
         el('mapBtn').addEventListener('click', function () { send('ToggleMap', ''); });
         // 便3b: 共通模様の試し（?tile=1 で最初から「あり」。押したら URL も書き換える＝そのまま人に渡せる）
-        var tileWant = new URLSearchParams(location.search).get('tile') === '1';
+        var tileWant = new URLSearchParams(location.search).get('tile') !== '0';
         function paintTile(on) { var b = el('tileBtn'); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.innerHTML = '模様 <b>' + (on ? 'あり' : 'なし') + '</b>'; }
         paintTile(tileWant);
         el('tileBtn').addEventListener('click', function () {
           tileWant = !tileWant; paintTile(tileWant);
           if (window.unityInstance) window.unityInstance.SendMessage('HitoyoRoomArt', 'SetTile', tileWant ? '1' : '0');
-          try { var u = new URL(location.href); if (tileWant) u.searchParams.set('tile', '1'); else u.searchParams.delete('tile'); history.replaceState(null, '', u.toString()); } catch (e) {}
+          try { var u = new URL(location.href); u.searchParams.set('tile', tileWant ? '1' : '0'); history.replaceState(null, '', u.toString()); } catch (e) {}
         });
         function paintView(v) {
           var b = el('mapBtn'); b.setAttribute('aria-pressed', v.map ? 'true' : 'false'); document.body.classList.toggle('map', !!v.map);
@@ -415,7 +417,7 @@
 
         // 便2d: 札の検査（出るたびに数える）。一字が上の枠に収まる／名・効き目・扉が帯に収まる（切れ・はみ出しなし）／並んだ札の高さが同じ／字は 12px 以上
         function cardsCheck(acc) {
-          acc = acc || { shown: 0, cards: 0, jiOut: 0, obiOut: 0, heightMismatch: 0, small: 0, panelOut: 0, askOut: 0, unreachable: 0, jiH: [], worst: '' };
+          acc = acc || { shown: 0, cards: 0, jiOut: 0, obiOut: 0, heightMismatch: 0, small: 0, panelOut: 0, askOut: 0, frameOut: 0, unreachable: 0, jiH: [], worst: '' };
           var fs = Array.prototype.slice.call(document.querySelectorAll('#cardRow .fuda')); if (!fs.length) return acc;
           acc.shown++;
           var panel = el('cards'), pr = panel.getBoundingClientRect(), ask = panel.querySelector('.ask'), ar = ask.getBoundingClientRect();
@@ -424,6 +426,10 @@
           var canScroll = /auto|scroll/.test(getComputedStyle(panel).overflowY) && panel.scrollHeight > panel.clientHeight;
           fs.forEach(function (f) {
             var r = f.getBoundingClientRect(), st = panel.scrollTop;
+            // 札の金枠は外側へ1px描く。スクロール領域の端で枠だけ切れることも検出する。
+            if (r.left - 1 < pr.left - .25 || r.right + 1 > pr.right + .25 || r.top + st - 1 < pr.top - .25 || r.bottom + st + 1 > pr.top + panel.scrollHeight + .25) {
+              acc.frameOut++; acc.worst = 'frame clipped ' + f.dataset.id;
+            }
             var vertical = r.top >= pr.top - 0.5 && r.bottom <= pr.bottom + 0.5;
             var reachable = canScroll && r.top + st >= pr.top - 0.5 && r.bottom + st <= pr.top + panel.scrollHeight + 0.5;
             if (r.left < pr.left - 0.5 || r.right > pr.right + 0.5 || (!vertical && !reachable)) { acc.unreachable++; acc.worst = 'unreachable ' + f.dataset.id; }
@@ -644,6 +650,8 @@
           paintLoad();
         }).then(function (inst) {
           window.unityInstance = inst; sendDoorRadius();
+          // 便4の実機試遊: 共通模様は「あり」を既定に。部屋の絵が届く前でもSetTileが予約する。
+          inst.SendMessage('HitoyoRoomArt', 'SetTile', tileWant ? '1' : '0');
           K.marks['instance-ready'] = Math.round(performance.now());
           clearInterval(tick); clearInterval(tipTimer);
           lastP = 1; paintLoad();
