@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-    <title>ひとよ屋敷（便3b・名札・共通模様の試し・部屋の灯）</title>
+    <title>ひとよ屋敷 — 三頁の手帳</title>
     <meta name="description" content="『月蝕綺譚 -Luna Occulta-』の非公式二次創作『ひとよ屋敷』の試作（便2c）。栞のいる部屋に寄って扉を押すと札が三枚出て、選んだ部屋が盤から迫り上がり、栞が跳ねて入る。「見取り図」で屋敷の全体へ引ける。">
     <script>
       window.__kitan = { t0: performance.now(), marks: {} };
@@ -134,10 +134,13 @@
       #toast { align-self: center; max-width: min(460px, 100%); font-size: 14px; line-height: 1.6; padding: 8px 12px; border-radius: 9px; white-space: pre-line; text-align: center;
         background: rgba(27,27,46,.92); border: 1px solid rgba(217,169,76,.35); opacity: 0; transition: opacity .25s; }
       #toast.on { opacity: 1; }
-      #cards { display: none; pointer-events: auto; }
+      #cards { display: none; pointer-events: auto;
+        max-height: calc(100vh - 120px);
+        max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        overflow-y: auto; overscroll-behavior: contain; }
       #cards.on { display: block; }
       #cards .ask { font-size: 13px; color: var(--sub); text-align: center; margin: 0 0 6px; }
-      #cards .ask { width: fit-content; max-width: 100%; margin: 0 auto 6px; padding: 3px 10px; border-radius: 9px; background: rgba(19,19,32,.82); }
+      #cards .ask { box-sizing: border-box; width: fit-content; max-width: 100%; margin: 0 auto 6px; padding: 3px 10px; border-radius: 9px; background: rgba(19,19,32,.82); }
       #cards .ask .lg { white-space: nowrap; } #cards .ask .lg b { color: var(--kindei-hi); font-weight: 600; }
       /* 便2d: 札は 3 列の格子（6 本の細い列を 2 本ずつ使う）。行の高さは全部そろう（1fr）。5 枚（占いの間の後）は 3＋2 で下の 2 枚を真ん中に */
       #cards .row { display: grid; grid-template-columns: repeat(6, minmax(0, 62px)); grid-auto-rows: 1fr; gap: 8px; justify-content: center; }
@@ -145,6 +148,15 @@
       #cards .row .fuda:nth-child(4):nth-last-child(2) { grid-column: 2 / span 2; }
       #cards .row .fuda:nth-child(5):nth-last-child(1) { grid-column: 4 / span 2; }
       #cards.on ~ #hud { display: none; }
+      /* 高さの低い横持ちは、説明を縮めず5枚を一段にする。さらに狭い画面では札の領域をスクロール。 */
+      @media (orientation: landscape) and (max-height: 520px) and (min-width: 700px) {
+        #cards .row.five { grid-template-columns: repeat(5, minmax(0, 132px)); }
+        #cards .row.five .fuda:nth-child(n) { grid-column: auto; }
+      }
+      @media (max-width: 360px) {
+        #cards .ask { padding-inline: 2px; }
+        #cards .ask .lg { white-space: normal; }
+      }
       /* 札（便2c）: 縦長の御札。藍の地に雲紋・細い金の枠と四隅の唐草と星・上に紅い蝕の月・中央に墨の筆の一字・下の帯に名と効き目 */
       /* 便2d（オーナー 09-24「解説の文字情報の方が重要」）: 上の一字の枠は全札で同じ高さ（84px）に固定して字を小さめに、残りを帯（名・効き目・扉）に回す。札の高さは帯の長い札に合わせてそろう */
       .fuda { position: relative; min-width: 0; min-height: 176px; padding: 0; border: 0; border-radius: 5px; text-align: center;
@@ -198,6 +210,7 @@
       #dayend .card .s { font-size: 12px; color: var(--sub); margin-bottom: 14px; }
       .primary { min-height: 44px; padding: 0 22px; border-radius: 999px; font-size: 16px; letter-spacing: .12em; color: var(--kindei-ink); background: var(--kindei-hi); border: 0; }
     </style>
+    <link rel="stylesheet" href="story.css">
   </head>
   <body>
     <canvas id="unity-canvas" tabindex="-1"></canvas>
@@ -213,6 +226,7 @@
     </div>
     <button type="button" id="mapBtn" aria-pressed="false">見取り図</button>
     <button type="button" id="tileBtn" aria-pressed="false" aria-label="共通模様（土壁・床板・襖の地）の試し">模様 <b>なし</b></button>
+    <button type="button" id="bookBtn" disabled>手帳 0 / 3</button>
     <div id="bottom">
       <div id="toast" role="status" aria-live="polite"></div>
       <div id="cards" class=""><p class="ask">置く部屋を一枚えらぶ（見た札は戻せない）<br><span class="lg">図は北が上　<b>▲</b>進める　<b>×</b>壁になる　<b>●</b>いまの部屋</span></p><div class="row" id="cardRow"></div></div>
@@ -229,6 +243,8 @@
       </div>
     </div>
     <div id="dayend"><div class="card"><h2>今日は、ここまで。</h2><p id="deWhy"></p><p class="s" id="deSum"></p><button type="button" class="primary" id="deNext">次の朝へ</button></div></div>
+    <dialog id="storyDialog" aria-labelledby="storyTitle"><header class="story-head"><div class="story-heading"><p class="story-kicker" id="storyKicker"></p><h2 id="storyTitle"></h2></div><button type="button" id="storyClose">閉じる</button></header><div id="storyBody"></div></dialog>
+    <script src="story.js"></script>
     <div id="veil"><div class="ld">
       <div class="moon" aria-hidden="true"></div>
       <h1>ひとよ屋敷</h1>
@@ -295,6 +311,7 @@
         //   検査: 丸の中心と投影点のずれ（px）・丸と栞の重なり・画面の外 を数える。?doorshift=px でわざとずらすと落ちる。
         // 名札: 押し所・上の帯・見取り図のボタンに重なったら、重ならない所まで押しのける。押しのけきれなければ出さない。
         var lastDoors = null, lastLabels = null;
+        var doorButtons = Object.create(null); // 押してから離すまで、同じ方向のDOMを維持する。
         var HALF = 25, GAP = 6;
         var NOFIX = new URLSearchParams(location.search).get('labfix') === '0';   // 検分: 名札を押しのけない（重なりを検査が数えるか）
         var DSHIFT = parseFloat(new URLSearchParams(location.search).get('doorshift')) || 0;   // 検分: 丸をわざとずらす（ずれの検査が落ちるか）
@@ -303,8 +320,8 @@
         function layout() {
           var R = canvas.getBoundingClientRect(), L = HY.lay; L.runs++;
           var topR = rectOf(el('top')), mapR = el('mapBtn').style.display === 'none' ? null : rectOf(el('mapBtn'));
-          var ui = [topR]; if (mapR) ui.push(mapR); ui.push(rectOf(el('tileBtn')));
-          var box = el('doors'); box.textContent = ''; var drs = [];
+          var ui = [topR]; if (mapR) ui.push(mapR); ui.push(rectOf(el('tileBtn'))); ui.push(rectOf(el('bookBtn')));
+          var box = el('doors'), drs = [], activeDirs = Object.create(null);
           var m = lastDoors;
           if (m && m.list.length) {
             L.withDoors++;
@@ -319,18 +336,27 @@
               // 丸は投影点にそのまま置く（寄り・引き・移動中も Unity がカメラの替わるたびに送り直す）
               var px = R.left + d.x * R.width + DSHIFT, py = R.top + d.y * R.height + DSHIFT;
               var k = KIND[d.kind] || ['扉', ''];
-              var b = document.createElement('button'); b.type = 'button'; b.className = 'door ' + d.kind;
-              b.innerHTML = '<span class="hoshi"></span><span class="eclipse"></span><span class="ji"></span>'; b.querySelector('.ji').textContent = k[0];
-              b.dataset.dir = d.dir; b.setAttribute('aria-label', DIRNAME[d.dir] + k[1] + (d.to ? '（' + d.to + '）' : ''));
+              var b = doorButtons[d.dir]; activeDirs[d.dir] = true;
+              if (!b) {
+                b = document.createElement('button'); b.type = 'button'; b.dataset.dir = d.dir;
+                b.innerHTML = '<span class="hoshi"></span><span class="eclipse"></span><span class="ji"></span>';
+                b.addEventListener('click', function () { send('Door', b.dataset.dir); });
+                doorButtons[d.dir] = b; box.appendChild(b);
+              }
+              b.className = 'door ' + d.kind;
+              var glyph = b.querySelector('.ji'); if (glyph.textContent !== k[0]) glyph.textContent = k[0];
+              b.setAttribute('aria-label', DIRNAME[d.dir] + k[1] + (d.to ? '（' + d.to + '）' : ''));
               b.style.left = px.toFixed(1) + 'px'; b.style.top = py.toFixed(1) + 'px';
-              b.addEventListener('click', function () { send('Door', d.dir); });
-              box.appendChild(b); drs.push(b);
+              drs.push(b);
               var br = b.getBoundingClientRect(), cxp = br.left + br.width / 2, cyp = br.top + br.height / 2;
               var dev = Math.hypot(cxp - (R.left + d.x * R.width), cyp - (R.top + d.y * R.height));
               L.doorN++; L.devMax = Math.max(L.devMax, dev); if (dev > 2) { L.devBad++; L.worst = 'dev ' + d.dir + ' ' + dev.toFixed(1); }
               if (chR && hit(rectOf(b), chR)) { if (m.settled) { L.doorChibi++; L.worst = 'chibi ' + d.dir; } else L.doorChibiMoving++; }   // 栞と重なる（落ち着いた画面／寄りきる途中は別に数える）
             });
           }
+          Object.keys(doorButtons).forEach(function (dir) {
+            if (!activeDirs[dir]) { doorButtons[dir].remove(); delete doorButtons[dir]; }
+          });
           var dRects = drs.map(rectOf);
           dRects.forEach(function (r, i) {
             L.minDoor = Math.min(L.minDoor, r.w, r.h);
@@ -383,13 +409,25 @@
           if (ok) H.ok++; else { H.bad++; H.worst = room.id + ' 帯「' + h.querySelector('.nm').textContent + '」'; }
         }
         function sendDoorRadius() { var R = canvas.getBoundingClientRect(); if (R.height > 0) send('SetDoorRadius', (HALF / R.height).toFixed(5)); }   // 便2d: 丸の半径を Unity へ（北の丸が栞に重ならない高さを Unity が選ぶ）
-        window.addEventListener('resize', function () { sendDoorRadius(); requestAnimationFrame(layout); });
+        window.addEventListener('resize', function () { sendDoorRadius(); requestAnimationFrame(function () {
+          layout(); if (el('cards').classList.contains('on')) HY.cardsCheck = cardsCheck(HY.cardsCheck);
+        }); });
 
         // 便2d: 札の検査（出るたびに数える）。一字が上の枠に収まる／名・効き目・扉が帯に収まる（切れ・はみ出しなし）／並んだ札の高さが同じ／字は 12px 以上
         function cardsCheck(acc) {
-          acc = acc || { shown: 0, cards: 0, jiOut: 0, obiOut: 0, heightMismatch: 0, small: 0, jiH: [], worst: '' };
+          acc = acc || { shown: 0, cards: 0, jiOut: 0, obiOut: 0, heightMismatch: 0, small: 0, panelOut: 0, askOut: 0, unreachable: 0, jiH: [], worst: '' };
           var fs = Array.prototype.slice.call(document.querySelectorAll('#cardRow .fuda')); if (!fs.length) return acc;
           acc.shown++;
+          var panel = el('cards'), pr = panel.getBoundingClientRect(), ask = panel.querySelector('.ask'), ar = ask.getBoundingClientRect();
+          if (pr.left < -0.5 || pr.right > innerWidth + 0.5 || pr.top < -0.5 || pr.bottom > innerHeight + 0.5) { acc.panelOut++; acc.worst = 'cards viewport'; }
+          if (ar.left < pr.left - 0.5 || ar.right > pr.right + 0.5 || ask.scrollWidth > ask.clientWidth + 1) { acc.askOut++; acc.worst = 'ask width'; }
+          var canScroll = /auto|scroll/.test(getComputedStyle(panel).overflowY) && panel.scrollHeight > panel.clientHeight;
+          fs.forEach(function (f) {
+            var r = f.getBoundingClientRect(), st = panel.scrollTop;
+            var vertical = r.top >= pr.top - 0.5 && r.bottom <= pr.bottom + 0.5;
+            var reachable = canScroll && r.top + st >= pr.top - 0.5 && r.bottom + st <= pr.top + panel.scrollHeight + 0.5;
+            if (r.left < pr.left - 0.5 || r.right > pr.right + 0.5 || (!vertical && !reachable)) { acc.unreachable++; acc.worst = 'unreachable ' + f.dataset.id; }
+          });
           var hs = fs.map(function (f) { return Math.round(f.getBoundingClientRect().height); });
           if (Math.max.apply(null, hs) - Math.min.apply(null, hs) > 1) { acc.heightMismatch++; acc.worst = 'height ' + hs.join('/'); }
           fs.forEach(function (f) {
@@ -502,6 +540,7 @@
         window.hitoyoUi = function (s) {
           var m; try { m = JSON.parse(s); } catch (e) { return; }
           switch (m.t) {
+            case 'journal': case 'story': window.HitoyoStory.receive(m); break;
             case 'hud':
               el('stat').innerHTML = '<b>' + m.day + '</b>日目<span class="k">歩</span><b>' + m.steps + '</b><span class="k">鍵</span><b>' + m.keys + '</b>';
               HY.hud = m; break;
@@ -516,10 +555,10 @@
               h.classList.add('on'); HY.hereMsg = m; requestAnimationFrame(layout); break;
             }
             case 'tile': HY.tile = m.on; paintTile(!!m.on); tileWant = !!m.on; break;
-            case 'doors': lastDoors = m; HY.doors = m.list; HY.doorsMsg = m; layout(); break;
+            case 'doors': window.HitoyoStory.canRead(m.readingAllowed); lastDoors = m; HY.doors = m.list; HY.doorsMsg = m; layout(); break;
             case 'view': paintView(m); HY.view = m; layout(); break;
             case 'cards': {
-              var row = el('cardRow'); row.textContent = '';
+              var row = el('cardRow'); row.textContent = ''; row.classList.toggle('five', m.list.length === 5); el('cards').scrollTop = 0;
               m.list.forEach(function (c) {
                 var b = document.createElement('button'); b.type = 'button'; b.className = 'fuda'; b.dataset.i = c.i; b.dataset.id = c.id || '';
                 b.innerHTML = '<i class="k tl"></i><i class="k tr"></i><span class="eclipse"></span><span class="hana"></span>'
@@ -538,7 +577,7 @@
               break;
             }
             case 'dayEnd':
-              el('dayend').classList.toggle('on', !!m.show);
+              el('dayend').classList.toggle('on', !!m.show); el('deNext').disabled = !!m.waiting;
               if (m.show) { el('deWhy').textContent = m.text; el('deSum').textContent = m.day + '日目・置いた部屋 ' + m.rooms + '・これまでの歩 ' + m.total; }
               HY.dayEnd = m; break;
           }

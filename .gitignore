@@ -1,0 +1,14 @@
+# 配信専用リポジトリ。公開物は Build/ と bin2/Build/ に置く。
+# Unityプロジェクトの作業用出力・キャッシュは公開しない。
+Builds/
+Library/
+Logs/
+UserSettings/
+Temp/
+.DS_Store
+
+# 公式モデル・公式stillは配布元から実行時取得する。再配布しない。
+*.glb
+*.gltf
+still/
+stills/
